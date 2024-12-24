@@ -17,7 +17,8 @@
             border-bottom: 1px solid #ddd;
         }
         .users-grid th {
-            background-color: #f8f9fa;
+            background-color: #343a40;
+            color: white;
             font-weight: bold;
         }
         .badge {
@@ -107,8 +108,8 @@
             {% endwith %}
 
             <div class="users-grid">
-                <table>
-                    <thead>
+                <table class="table table-striped">
+                    <thead class="table-dark">
                         <tr>
                             <th>Nom</th>
                             <th>Email</th>
@@ -144,16 +145,13 @@
                                         </button>
                                     </form>
                                     {% else %}
-                                    <form action="{{ url_for('toggle_admin', user_id=user.id) }}" method="post" style="display: inline;">
-                                        <button type="submit" class="btn btn-primary">
-                                            {% if user.is_admin %}
-                                                Retirer droits admin
-                                            {% else %}
-                                                Donner droits admin
-                                            {% endif %}
-                                        </button>
-                                    </form>
-                                    <form action="{{ url_for('delete_user', user_id=user.id) }}" method="post" style="display: inline;">
+                                    <a href="{{ url_for('toggle_admin', user_id=user.id) }}" class="btn btn-warning btn-sm">
+                                        {% if user.is_admin %}Retirer admin{% else %}Rendre admin{% endif %}
+                                    </a>
+                                    <a href="{{ url_for('toggle_parent', user_id=user.id) }}" class="btn btn-info btn-sm">
+                                        {% if user.is_parent %}Retirer parent{% else %}Rendre parent{% endif %}
+                                    </a>
+                                    <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" class="d-inline">
                                         <button type="submit" class="btn btn-danger" onclick="return confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')">
                                             Supprimer
                                         </button>

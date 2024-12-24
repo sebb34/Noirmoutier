@@ -42,7 +42,9 @@ def handle_room_image(image_file, old_image=None):
         room_name = request.form.get('name', '').lower()
         # Replace spaces and special characters with underscores
         room_name = ''.join(c if c.isalnum() else '_' for c in room_name)
-        filename = f"{room_name}{ext}"
+        # Add timestamp to prevent caching
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{room_name}_{timestamp}{ext}"
         
         # Make sure the upload folder exists
         os.makedirs(os.path.join(app.root_path, 'static', 'images', 'rooms'), exist_ok=True)
@@ -96,15 +98,16 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     is_approved = db.Column(db.Boolean, default=False)
+    is_parent = db.Column(db.Boolean, default=False)  # Nouveau champ pour le rôle parent
     reset_token = db.Column(db.String(100), unique=True)
     reset_token_expiry = db.Column(db.DateTime)
     registration_date = db.Column(db.DateTime, default=datetime.utcnow)
     
     def set_password(self, password):
-        self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     
     def check_password(self, password):
-        return bcrypt.checkpw(password.encode('utf-8'), self.password_hash)
+        return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
 
     def get_reset_token(self):
         # Generate a random token
@@ -228,8 +231,15 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_admin:
-            flash('Accès réservé aux administrateurs.', 'error')
-            return redirect(url_for('home'))
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+def parent_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_parent:
+            abort(403)
         return f(*args, **kwargs)
     return decorated_function
 
@@ -322,45 +332,53 @@ def view_reservations():
 @app.route('/make_reservation', methods=['GET', 'POST'])
 @login_required
 def make_reservation():
-    if request.method == 'POST':
-        room_id = int(request.form.get('room_id'))
-        check_in = datetime.strptime(request.form.get('check_in'), '%Y-%m-%d')
-        check_out = datetime.strptime(request.form.get('check_out'), '%Y-%m-%d')
-        number_of_guests = int(request.form.get('number_of_guests'))
+    if not current_user.is_approved:
+        flash('Votre compte doit être approuvé avant de pouvoir faire des réservations.', 'error')
+        return redirect(url_for('home'))
 
-        # Validate room capacity
-        room = Room.query.get(room_id)
-        if number_of_guests > room.capacity:
-            flash(f"Le nombre de personnes dépasse la capacité de la chambre ({room.capacity} personnes maximum)", 'error')
-            return redirect(url_for('make_reservation'))
+    room_id = request.form.get('room_id')
+    room = Room.query.get_or_404(room_id)
+    
+    # Vérifier si c'est la chambre des parents
+    if room.name == 'Chambre des parents' and not current_user.is_parent:
+        flash('La Chambre des parents est réservée aux parents uniquement.', 'error')
+        return redirect(url_for('home'))
 
-        # Check for conflicts
-        conflicts = Reservation.query.filter(
-            Reservation.room_id == room_id,
-            ((Reservation.check_in <= check_in) & (Reservation.check_out >= check_in)) |
-            ((Reservation.check_in <= check_out) & (Reservation.check_out >= check_out))
-        ).first()
+    guest_name = request.form.get('guest_name')
+    email = request.form.get('email')
+    check_in = datetime.strptime(request.form.get('check_in'), '%Y-%m-%d')
+    check_out = datetime.strptime(request.form.get('check_out'), '%Y-%m-%d')
+    number_of_guests = int(request.form.get('number_of_guests'))
 
-        if conflicts:
-            flash('Cette chambre est déjà réservée pour ces dates!', 'error')
-            return redirect(url_for('make_reservation'))
+    # Validate room capacity
+    if number_of_guests > room.capacity:
+        flash(f"Le nombre de personnes dépasse la capacité de la chambre ({room.capacity} personnes maximum)", 'error')
+        return redirect(url_for('make_reservation'))
 
-        new_reservation = Reservation(
-            guest_name=current_user.name,
-            email=current_user.email,
-            room_id=room_id,
-            check_in=check_in,
-            check_out=check_out,
-            number_of_guests=number_of_guests,
-            user_id=current_user.id
-        )
-        db.session.add(new_reservation)
-        db.session.commit()
-        flash('Réservation effectuée avec succès!', 'success')
-        return redirect(url_for('view_reservations'))
+    # Check for conflicts
+    conflicts = Reservation.query.filter(
+        Reservation.room_id == room_id,
+        ((Reservation.check_in <= check_in) & (Reservation.check_out >= check_in)) |
+        ((Reservation.check_in <= check_out) & (Reservation.check_out >= check_out))
+    ).first()
 
-    rooms = Room.query.all()
-    return render_template('make_reservation.html', now=datetime.now(), rooms=rooms)
+    if conflicts:
+        flash('Cette chambre est déjà réservée pour ces dates!', 'error')
+        return redirect(url_for('make_reservation'))
+
+    new_reservation = Reservation(
+        guest_name=current_user.name,
+        email=current_user.email,
+        room_id=room_id,
+        check_in=check_in,
+        check_out=check_out,
+        number_of_guests=number_of_guests,
+        user_id=current_user.id
+    )
+    db.session.add(new_reservation)
+    db.session.commit()
+    flash('Réservation effectuée avec succès!', 'success')
+    return redirect(url_for('view_reservations'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -433,6 +451,16 @@ def toggle_admin(user_id):
     user.is_admin = not user.is_admin
     db.session.commit()
     flash(f'Statut administrateur modifié pour {user.name}.', 'success')
+    return redirect(url_for('manage_users'))
+
+@app.route('/toggle-parent/<int:user_id>')
+@login_required
+@admin_required
+def toggle_parent(user_id):
+    user = User.query.get_or_404(user_id)
+    user.is_parent = not user.is_parent
+    db.session.commit()
+    flash(f"Le rôle parent a été {'ajouté' if user.is_parent else 'retiré'} pour {user.name}.", 'success')
     return redirect(url_for('manage_users'))
 
 @app.route('/delete_user/<int:user_id>', methods=['POST'])
