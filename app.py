@@ -329,12 +329,16 @@ def home():
 def view_reservations():
     return redirect(url_for('calendar'))
 
-@app.route('/make_reservation', methods=['GET', 'POST'])
+@app.route('/make-reservation', methods=['GET', 'POST'])
 @login_required
 def make_reservation():
     if not current_user.is_approved:
         flash('Votre compte doit être approuvé avant de pouvoir faire des réservations.', 'error')
         return redirect(url_for('home'))
+
+    if request.method == 'GET':
+        rooms = Room.query.all()
+        return render_template('make_reservation.html', now=datetime.now(), rooms=rooms)
 
     room_id = request.form.get('room_id')
     room = Room.query.get_or_404(room_id)
