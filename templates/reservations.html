@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Réservations - Maison Bourrut</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Calendrier des réservations</h1>
+        <nav>
+            <a href="{{ url_for('home') }}">Accueil</a>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('make_reservation') }}">Réserver</a>
+                <a href="{{ url_for('view_reservations') }}" class="active">Voir les réservations</a>
+                <a href="{{ url_for('logout') }}">Déconnexion</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Connexion</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        <section class="reservations-list">
+            {% if reservations %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Chambre</th>
+                            <th>Arrivée</th>
+                            <th>Départ</th>
+                            <th>Nombre de personnes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reservation in reservations %}
+                            <tr>
+                                <td>{{ reservation.guest_name }}</td>
+                                <td>{{ reservation.room.name }}</td>
+                                <td>{{ reservation.check_in.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ reservation.check_out.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ reservation.number_of_guests }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="no-reservations">Aucune réservation pour le moment.</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; {{ now.year }} Famille Bourrut - Noirmoutier</p>
+    </footer>
+</body>
+</html>

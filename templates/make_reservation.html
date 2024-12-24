@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Réserver - Maison Bourrut</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Maison Bourrut à Noirmoutier</h1>
+        <nav>
+            <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Accueil</a>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('make_reservation') }}" {% if request.endpoint == 'make_reservation' %}class="active"{% endif %}>Réserver</a>
+                <a href="{{ url_for('calendar') }}" {% if request.endpoint == 'calendar' %}class="active"{% endif %}>Calendrier</a>
+                <a href="{{ url_for('my_reservations') }}" {% if request.endpoint == 'my_reservations' %}class="active"{% endif %}>Mes Réservations</a>
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('manage_rooms') }}" {% if request.endpoint == 'manage_rooms' %}class="active"{% endif %}>Gérer les chambres</a>
+                    <a href="{{ url_for('manage_users') }}" {% if request.endpoint == 'manage_users' %}class="active"{% endif %}>Gérer les utilisateurs</a>
+                {% endif %}
+                <a href="{{ url_for('profile') }}" {% if request.endpoint == 'profile' %}class="active"{% endif %}>Mon Profil</a>
+                <a href="{{ url_for('logout') }}">Déconnexion</a>
+            {% else %}
+                <a href="{{ url_for('login') }}" {% if request.endpoint == 'login' %}class="active"{% endif %}>Connexion</a>
+                <a href="{{ url_for('register') }}" {% if request.endpoint == 'register' %}class="active"{% endif %}>Inscription</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        <section class="reservation-form">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <div class="form-group">
+                    <label for="guest_name">Nom</label>
+                    <input type="text" id="guest_name" name="guest_name" value="{{ current_user.name }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="{{ current_user.email }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="room">Chambre</label>
+                    <select id="room" name="room_id" required>
+                        {% for room in rooms %}
+                            <option value="{{ room.id }}">{{ room.name }} ({{ room.capacity }} personnes)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="check_in">Date d'arrivée</label>
+                    <input type="date" id="check_in" name="check_in" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="check_out">Date de départ</label>
+                    <input type="date" id="check_out" name="check_out" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="number_of_guests">Nombre de personnes</label>
+                    <input type="number" id="number_of_guests" name="number_of_guests" min="1" required>
+                </div>
+
+                <button type="submit" class="button">Réserver</button>
+            </form>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; {{ now.year }} Famille Bourrut - Noirmoutier</p>
+    </footer>
+</body>
+</html>

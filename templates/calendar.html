@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendrier des réservations - Maison Bourrut</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+</head>
+<body>
+    <header>
+        <h1>Maison Bourrut à Noirmoutier</h1>
+        <nav>
+            <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Accueil</a>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('make_reservation') }}" {% if request.endpoint == 'make_reservation' %}class="active"{% endif %}>Réserver</a>
+                <a href="{{ url_for('calendar') }}" {% if request.endpoint == 'calendar' %}class="active"{% endif %}>Calendrier</a>
+                <a href="{{ url_for('my_reservations') }}" {% if request.endpoint == 'my_reservations' %}class="active"{% endif %}>Mes Réservations</a>
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('manage_rooms') }}" {% if request.endpoint == 'manage_rooms' %}class="active"{% endif %}>Gérer les chambres</a>
+                    <a href="{{ url_for('manage_users') }}" {% if request.endpoint == 'manage_users' %}class="active"{% endif %}>Gérer les utilisateurs</a>
+                {% endif %}
+                <a href="{{ url_for('profile') }}" {% if request.endpoint == 'profile' %}class="active"{% endif %}>Mon Profil</a>
+                <a href="{{ url_for('logout') }}">Déconnexion</a>
+            {% else %}
+                <a href="{{ url_for('login') }}" {% if request.endpoint == 'login' %}class="active"{% endif %}>Connexion</a>
+                <a href="{{ url_for('register') }}" {% if request.endpoint == 'register' %}class="active"{% endif %}>Inscription</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        <section class="calendar-section">
+            <div class="calendar-controls">
+                <div class="month-navigation">
+                    <a href="{{ url_for('calendar', year=prev_month.year, month=prev_month.month) }}" class="nav-button">
+                        <i class="fas fa-chevron-left"></i> Mois précédent
+                    </a>
+                    <h2>{{ current_month_name }} {{ year }}</h2>
+                    <a href="{{ url_for('calendar', year=next_month.year, month=next_month.month) }}" class="nav-button">
+                        Mois suivant <i class="fas fa-chevron-right"></i>
+                    </a>
+                </div>
+                <div class="view-toggle">
+                    <button class="view-button active" onclick="toggleView('calendar')">
+                        <i class="fas fa-calendar-alt"></i> Calendrier
+                    </button>
+                    <button class="view-button" onclick="toggleView('list')">
+                        <i class="fas fa-list"></i> Liste
+                    </button>
+                </div>
+            </div>
+
+            <div id="calendar-view" class="view-content active">
+                <div class="calendar">
+                    {{ calendar_html|safe }}
+                </div>
+            </div>
+
+            <div id="list-view" class="view-content">
+                <div class="reservations-list">
+                    <div class="reservation-filters">
+                        <h3>Réservations à venir</h3>
+                    </div>
+                    {% set sorted_reservations = reservations|sort(attribute='days_until') %}
+                    {% for reservation in sorted_reservations %}
+                        <div class="reservation-item {% if reservation.status == 'en-cours' %}current{% endif %}" style="border-left-color: {{ reservation.room_color }};">
+                            <div class="reservation-header">
+                                <div class="reservation-room" style="color: {{ reservation.room_color }};">{{ reservation.room_name }}</div>
+                                <div class="reservation-status">
+                                    {% if reservation.status == 'en-cours' %}
+                                        <span class="status-badge current">En cours</span>
+                                    {% else %}
+                                        <span class="status-badge upcoming">
+                                            {% if reservation.days_until == 0 %}
+                                                Aujourd'hui
+                                            {% elif reservation.days_until == 1 %}
+                                                Demain
+                                            {% else %}
+                                                Dans {{ reservation.days_until }} jours
+                                            {% endif %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="reservation-dates">
+                                <span class="date-range">
+                                    {{ reservation.start_date_display }} - {{ reservation.end_date_display }}
+                                </span>
+                            </div>
+                            <div class="reservation-details">
+                                <span class="reserver">{{ reservation.user.name }}</span>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="no-reservations">Aucune réservation à venir</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Restore user's preference on page load
+            const savedView = localStorage.getItem('calendarViewPreference');
+            if (savedView) {
+                toggleView(savedView);
+            }
+        });
+
+        function toggleView(viewType) {
+            const calendarView = document.getElementById('calendar-view');
+            const listView = document.getElementById('list-view');
+            const buttons = document.querySelectorAll('.view-button');
+            
+            buttons.forEach(button => button.classList.remove('active'));
+            
+            if (viewType === 'calendar') {
+                calendarView.classList.add('active');
+                listView.classList.remove('active');
+                buttons[0].classList.add('active');
+            } else {
+                listView.classList.add('active');
+                calendarView.classList.remove('active');
+                buttons[1].classList.add('active');
+            }
+
+            // Save preference
+            localStorage.setItem('calendarViewPreference', viewType);
+        }
+    </script>
+</body>
+</html>
