@@ -435,20 +435,36 @@ def register():
             email = request.form.get('email')
             name = request.form.get('name')
             password = request.form.get('password')
+            confirm_password = request.form.get('confirm_password')
             
             logger.debug(f"Tentative d'inscription avec email: {email}, name: {name}")
             
-            if not email or not name or not password:
+            # Vérification des champs requis
+            if not email or not name or not password or not confirm_password:
                 logger.warning("Champs manquants dans le formulaire d'inscription")
                 flash('Tous les champs sont obligatoires.', 'error')
                 return redirect(url_for('register'))
             
+            # Vérification de la correspondance des mots de passe
+            if password != confirm_password:
+                logger.warning("Les mots de passe ne correspondent pas")
+                flash('Les mots de passe ne correspondent pas.', 'error')
+                return redirect(url_for('register'))
+            
+            # Vérification de la longueur minimale du mot de passe
+            if len(password) < 6:
+                logger.warning("Mot de passe trop court")
+                flash('Le mot de passe doit contenir au moins 6 caractères.', 'error')
+                return redirect(url_for('register'))
+            
+            # Vérification de l'email existant
             if User.query.filter_by(email=email).first():
                 logger.warning(f"Tentative d'inscription avec un email existant: {email}")
                 flash('Un compte existe déjà avec cet email.', 'error')
                 return redirect(url_for('register'))
             
             try:
+                # Création de l'utilisateur
                 new_user = User()
                 new_user.email = email
                 new_user.name = name
@@ -456,6 +472,7 @@ def register():
                 new_user.is_approved = False
                 new_user.set_password(password)
                 
+                # Sauvegarde dans la base de données
                 db.session.add(new_user)
                 db.session.commit()
                 
