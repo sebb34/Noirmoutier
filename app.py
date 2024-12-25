@@ -480,24 +480,26 @@ def manage_users():
 @login_required
 @admin_required
 def toggle_admin(user_id):
-    user = User.query.get_or_404(user_id)
-    if current_user.id == user.id:
-        flash('Impossible de modifier votre propre statut d\'administrateur.', 'error')
+    if current_user.id == user_id:
+        flash('Vous ne pouvez pas modifier vos propres droits d\'administrateur.', 'error')
         return redirect(url_for('manage_users'))
     
+    user = User.query.get_or_404(user_id)
     user.is_admin = not user.is_admin
     db.session.commit()
-    flash(f'Statut administrateur modifié pour {user.name}.', 'success')
+    
+    flash(f'Les droits d\'administrateur de {user.name} ont été {"retirés" if not user.is_admin else "accordés"}.', 'success')
     return redirect(url_for('manage_users'))
 
-@app.route('/toggle-parent/<int:user_id>')
+@app.route('/toggle_parent/<int:user_id>', methods=['POST'])
 @login_required
 @admin_required
 def toggle_parent(user_id):
     user = User.query.get_or_404(user_id)
     user.is_parent = not user.is_parent
     db.session.commit()
-    flash(f"Le rôle parent a été {'ajouté' if user.is_parent else 'retiré'} pour {user.name}.", 'success')
+    
+    flash(f'Les droits de parent de {user.name} ont été {"retirés" if not user.is_parent else "accordés"}.', 'success')
     return redirect(url_for('manage_users'))
 
 @app.route('/delete_user/<int:user_id>', methods=['POST'])

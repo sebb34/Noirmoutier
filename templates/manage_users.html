@@ -166,12 +166,16 @@
                                         </button>
                                     </form>
                                     {% else %}
-                                    <a href="{{ url_for('toggle_admin', user_id=user.id) }}" class="btn btn-warning btn-sm">
-                                        {% if user.is_admin %}Retirer admin{% else %}Rendre admin{% endif %}
-                                    </a>
-                                    <a href="{{ url_for('toggle_parent', user_id=user.id) }}" class="btn btn-info btn-sm">
-                                        {% if user.is_parent %}Retirer parent{% else %}Rendre parent{% endif %}
-                                    </a>
+                                    <form action="{{ url_for('toggle_admin', user_id=user.id) }}" method="POST" style="display: inline;">
+                                        <button type="submit" class="btn btn-warning btn-sm">
+                                            {% if user.is_admin %}Retirer admin{% else %}Rendre admin{% endif %}
+                                        </button>
+                                    </form>
+                                    <form action="{{ url_for('toggle_parent', user_id=user.id) }}" method="POST" style="display: inline;">
+                                        <button type="submit" class="btn btn-info btn-sm">
+                                            {% if user.is_parent %}Retirer parent{% else %}Rendre parent{% endif %}
+                                        </button>
+                                    </form>
                                     <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" class="d-inline">
                                         <button type="submit" class="btn btn-danger" onclick="return confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')">
                                             Supprimer
