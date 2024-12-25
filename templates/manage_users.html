@@ -134,7 +134,6 @@
                         <tr>
                             <th>Nom</th>
                             <th>Email</th>
-                            <th>Date d'inscription</th>
                             <th>Statut</th>
                             <th>Admin</th>
                             <th>Actions</th>
@@ -145,7 +144,6 @@
                         <tr>
                             <td>{{ user.name }}</td>
                             <td>{{ user.email }}</td>
-                            <td>{{ user.registration_date.strftime('%d/%m/%Y %H:%M') }}</td>
                             <td>
                                 {% if user.is_approved %}
                                     <span class="badge approved">Approuvé</span>
