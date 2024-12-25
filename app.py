@@ -107,15 +107,18 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     is_approved = db.Column(db.Boolean, default=False)
-    is_parent = db.Column(db.Boolean, default=False)  # Nouveau champ pour le rôle parent
+    is_parent = db.Column(db.Boolean, default=False)
     reset_token = db.Column(db.String(100), unique=True)
     reset_token_expiry = db.Column(db.DateTime)
     registration_date = db.Column(db.DateTime, default=datetime.utcnow)
     
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        if password:
+            self.password_hash = generate_password_hash(password, method='sha256')
     
     def check_password(self, password):
+        if not password or not self.password_hash:
+            return False
         return check_password_hash(self.password_hash, password)
 
     def get_reset_token(self):
@@ -413,61 +416,30 @@ def register():
         return redirect(url_for('home'))
     
     if request.method == 'POST':
-        try:
-            email = request.form.get('email')
-            name = request.form.get('name')
-            password = request.form.get('password')
-            
-            if not email or not name or not password:
-                flash('Tous les champs sont obligatoires.', 'error')
-                return redirect(url_for('register'))
-            
-            if User.query.filter_by(email=email).first():
-                flash('Un compte existe déjà avec cet email.', 'error')
-                return redirect(url_for('register'))
-            
-            new_user = User(
-                email=email,
-                name=name,
-                is_admin=False,
-                is_approved=False,
-                registration_date=datetime.utcnow()
-            )
-            new_user.set_password(password)
-            
-            try:
-                db.session.add(new_user)
-                db.session.commit()
-                app.logger.info(f"Nouvel utilisateur créé : {email}")
-                
-                # Envoyer un email aux administrateurs
-                subject = "Nouvelle inscription sur Maison Bourrut"
-                body = f"""Un nouvel utilisateur s'est inscrit sur le site :
-                
-Nom : {name}
-Email : {email}
-
-Vous pouvez approuver ou rejeter cette inscription depuis la page de gestion des utilisateurs :
-{url_for('manage_users', _external=True)}
-"""
-                try:
-                    send_email_to_admins(subject, body)
-                except Exception as e:
-                    app.logger.error(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
-                
-                flash('Votre compte a été créé avec succès. Un administrateur doit maintenant l\'approuver.', 'success')
-                return redirect(url_for('login'))
-                
-            except Exception as e:
-                db.session.rollback()
-                app.logger.error(f"Erreur lors de l'enregistrement de l'utilisateur : {str(e)}")
-                flash('Une erreur est survenue lors de la création du compte. Veuillez réessayer.', 'error')
-                return redirect(url_for('register'))
-                
-        except Exception as e:
-            app.logger.error(f"Erreur lors de l'inscription : {str(e)}")
-            flash('Une erreur est survenue. Veuillez réessayer.', 'error')
+        email = request.form.get('email')
+        name = request.form.get('name')
+        password = request.form.get('password')
+        
+        if not email or not name or not password:
+            flash('Tous les champs sont obligatoires.', 'error')
             return redirect(url_for('register'))
+        
+        if User.query.filter_by(email=email).first():
+            flash('Un compte existe déjà avec cet email.', 'error')
+            return redirect(url_for('register'))
+        
+        new_user = User()
+        new_user.email = email
+        new_user.name = name
+        new_user.is_admin = False
+        new_user.is_approved = False
+        new_user.set_password(password)
+        
+        db.session.add(new_user)
+        db.session.commit()
+        
+        flash('Votre compte a été créé avec succès. Un administrateur doit maintenant l\'approuver.', 'success')
+        return redirect(url_for('login'))
     
     return render_template('register.html')
 
