@@ -115,6 +115,37 @@ ROOMS = {
     }
 }
 
+# Fonctions importantes
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+def parent_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_parent:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+def send_email_to_admins(subject, body):
+    """
+    Envoie un email à tous les administrateurs
+    """
+    admins = User.query.filter_by(is_admin=True).all()
+    for admin in admins:
+        msg = Message(
+            subject,
+            sender=app.config['MAIL_DEFAULT_SENDER'],
+            recipients=[admin.email]
+        )
+        msg.body = body
+        mail.send(msg)
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -122,40 +153,16 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     is_approved = db.Column(db.Boolean, default=False)
-    is_parent = db.Column(db.Boolean, default=False)
     
     def set_password(self, password):
-        if password:
-            self.password_hash = generate_password_hash(password, method='sha256')
+        self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):
-        if not password or not self.password_hash:
-            return False
         return check_password_hash(self.password_hash, password)
 
-# Initialisation de la base de données
-def init_db():
-    with app.app_context():
-        # Création des tables
-        db.create_all()
-        
-        # Vérification si un admin existe déjà
-        admin = User.query.filter_by(email='admin@example.com').first()
-        if not admin:
-            # Création d'un admin par défaut
-            admin = User(
-                email='admin@example.com',
-                name='Admin',
-                is_admin=True,
-                is_approved=True
-            )
-            admin.set_password('admin123')  # À changer en production !
-            db.session.add(admin)
-            db.session.commit()
-            logger.info("Admin par défaut créé")
-
-# Initialisation de la base de données au démarrage
-init_db()
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 class Room(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -176,10 +183,6 @@ class Reservation(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     user = db.relationship('User', backref=db.backref('reservations', lazy=True))
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -366,7 +369,8 @@ def register():
                 email=email,
                 name=name,
                 is_admin=False,
-                is_approved=False
+                is_approved=False,
+                registration_date=datetime.utcnow()
             )
             new_user.set_password(password)
             
@@ -374,6 +378,22 @@ def register():
                 # Sauvegarde dans la base de données
                 db.session.add(new_user)
                 db.session.commit()
+                
+                # Envoi d'email aux administrateurs
+                try:
+                    subject = "Nouvelle inscription sur Maison Bourrut"
+                    body = f"""Un nouvel utilisateur s'est inscrit sur le site :
+                    
+Nom : {name}
+Email : {email}
+
+Vous pouvez approuver ou rejeter cette inscription depuis la page de gestion des utilisateurs :
+{url_for('manage_users', _external=True)}
+"""
+                    send_email_to_admins(subject, body)
+                except Exception as e:
+                    logger.error(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
+                
                 logger.info(f"Nouvel utilisateur créé avec succès: {email}")
                 flash('Votre compte a été créé avec succès. Un administrateur doit maintenant l\'approuver.', 'success')
                 return redirect(url_for('login'))
