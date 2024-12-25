@@ -9,6 +9,9 @@ from functools import wraps
 import calendar as cal
 import secrets
 from flask_mail import Mail, Message
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -416,30 +419,48 @@ def register():
         return redirect(url_for('home'))
     
     if request.method == 'POST':
-        email = request.form.get('email')
-        name = request.form.get('name')
-        password = request.form.get('password')
-        
-        if not email or not name or not password:
-            flash('Tous les champs sont obligatoires.', 'error')
+        try:
+            email = request.form.get('email')
+            name = request.form.get('name')
+            password = request.form.get('password')
+            
+            logger.debug(f"Tentative d'inscription avec email: {email}, name: {name}")
+            
+            if not email or not name or not password:
+                logger.warning("Champs manquants dans le formulaire d'inscription")
+                flash('Tous les champs sont obligatoires.', 'error')
+                return redirect(url_for('register'))
+            
+            if User.query.filter_by(email=email).first():
+                logger.warning(f"Tentative d'inscription avec un email existant: {email}")
+                flash('Un compte existe déjà avec cet email.', 'error')
+                return redirect(url_for('register'))
+            
+            try:
+                new_user = User()
+                new_user.email = email
+                new_user.name = name
+                new_user.is_admin = False
+                new_user.is_approved = False
+                new_user.set_password(password)
+                
+                db.session.add(new_user)
+                db.session.commit()
+                
+                logger.info(f"Nouvel utilisateur créé avec succès: {email}")
+                flash('Votre compte a été créé avec succès. Un administrateur doit maintenant l\'approuver.', 'success')
+                return redirect(url_for('login'))
+                
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Erreur lors de la création de l'utilisateur: {str(e)}")
+                flash('Une erreur est survenue lors de la création du compte. Veuillez réessayer.', 'error')
+                return redirect(url_for('register'))
+                
+        except Exception as e:
+            logger.error(f"Erreur inattendue lors de l'inscription: {str(e)}")
+            flash('Une erreur inattendue est survenue. Veuillez réessayer.', 'error')
             return redirect(url_for('register'))
-        
-        if User.query.filter_by(email=email).first():
-            flash('Un compte existe déjà avec cet email.', 'error')
-            return redirect(url_for('register'))
-        
-        new_user = User()
-        new_user.email = email
-        new_user.name = name
-        new_user.is_admin = False
-        new_user.is_approved = False
-        new_user.set_password(password)
-        
-        db.session.add(new_user)
-        db.session.commit()
-        
-        flash('Votre compte a été créé avec succès. Un administrateur doit maintenant l\'approuver.', 'success')
-        return redirect(url_for('login'))
     
     return render_template('register.html')
 
