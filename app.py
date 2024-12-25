@@ -219,7 +219,7 @@ def logout():
 @app.route('/')
 def home():
     rooms = Room.query.all()
-    current_date = datetime.now().date()
+    current_date = datetime.now()
     
     # Get all reservations
     reservations = Reservation.query.filter(
@@ -236,7 +236,8 @@ def home():
                 room_reservations[room.id].append({
                     'start_date': reservation.start_date,
                     'end_date': reservation.end_date,
-                    'status': status
+                    'status': status,
+                    'user': reservation.user
                 })
 
     return render_template('home.html', rooms=rooms, room_reservations=room_reservations)
@@ -711,7 +712,7 @@ def generate_calendar_html(year, month, reservations):
                 date = datetime(year, month, day).date()
                 day_reservations = []
                 for reservation in reservations:
-                    if reservation.start_date.date() <= date <= reservation.end_date.date():
+                    if reservation.start_date <= date <= reservation.end_date:
                         day_reservations.append(reservation)
                 
                 if day_reservations:
@@ -786,8 +787,8 @@ def calendar(year=None, month=None):
     # Format reservations for display
     formatted_reservations = []
     for reservation in future_reservations:
-        days_until = (reservation.start_date.date() - datetime.now().date()).days
-        status = 'en-cours' if reservation.start_date.date() <= datetime.now().date() <= reservation.end_date.date() else 'à-venir'
+        days_until = (reservation.start_date - datetime.now()).days
+        status = 'en-cours' if reservation.start_date <= datetime.now() <= reservation.end_date else 'à-venir'
         
         formatted_reservations.append({
             'room_id': reservation.room_id,  # Added room_id for linking
