@@ -260,8 +260,8 @@ def make_reservation():
     else:
         data = {
             'room_id': request.form.get('room_id'),
-            'start_date': request.form.get('check_in'),
-            'end_date': request.form.get('check_out'),
+            'start_date': request.form.get('start_date'),
+            'end_date': request.form.get('end_date'),
             'number_of_guests': request.form.get('number_of_guests')
         }
     
@@ -275,6 +275,20 @@ def make_reservation():
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
         end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
         number_of_guests = int(data['number_of_guests'])
+        current_date = datetime.now().date()
+
+        # Validate dates
+        if start_date < current_date:
+            if request.is_json:
+                return jsonify({'error': 'La date de début doit être dans le futur'}), 400
+            flash('La date de début doit être dans le futur.', 'error')
+            return redirect(url_for('make_reservation'))
+            
+        if end_date <= start_date:
+            if request.is_json:
+                return jsonify({'error': 'La date de fin doit être après la date de début'}), 400
+            flash('La date de fin doit être après la date de début.', 'error')
+            return redirect(url_for('make_reservation'))
 
         # Validate the room exists
         room = Room.query.get(room_id)
@@ -289,6 +303,12 @@ def make_reservation():
             if request.is_json:
                 return jsonify({'error': f'Cette chambre ne peut accueillir que {room.capacity} personnes'}), 400
             flash(f'Cette chambre ne peut accueillir que {room.capacity} personnes.', 'error')
+            return redirect(url_for('make_reservation'))
+        
+        if number_of_guests < 1:
+            if request.is_json:
+                return jsonify({'error': 'Le nombre de personnes doit être supérieur à 0'}), 400
+            flash('Le nombre de personnes doit être supérieur à 0.', 'error')
             return redirect(url_for('make_reservation'))
 
         # Check if room is available for these dates
@@ -318,18 +338,16 @@ def make_reservation():
 
         # Send email to admin
         try:
-            msg = Message(
-                'Nouvelle réservation',
-                recipients=[app.config['ADMIN_EMAIL']],
-                body=f'Nouvelle réservation de {current_user.name} ({current_user.email})\n'
-                     f'Chambre: {room.name}\n'
-                     f'Du: {start_date}\n'
-                     f'Au: {end_date}\n'
-                     f'Nombre de personnes: {number_of_guests}'
-            )
-            mail.send(msg)
+            subject = 'Nouvelle réservation'
+            body = f"""Nouvelle réservation de {current_user.name} ({current_user.email})
+
+Chambre: {room.name}
+Du: {start_date}
+Au: {end_date}
+Nombre de personnes: {number_of_guests}"""
+            send_email_to_admins(subject, body)
         except Exception as e:
-            print(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
+            logger.error(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
 
         if request.is_json:
             return jsonify({'message': 'Réservation créée avec succès'}), 201
@@ -337,14 +355,14 @@ def make_reservation():
         return redirect(url_for('my_reservations'))
 
     except (ValueError, KeyError) as e:
-        print(f"Error in make_reservation: {str(e)}")  # Add debug logging
+        logger.error(f"Error in make_reservation: {str(e)}")
         if request.is_json:
             return jsonify({'error': 'Données de réservation invalides'}), 400
         flash('Données de réservation invalides.', 'error')
         return redirect(url_for('make_reservation'))
 
     except Exception as e:
-        print(f"Unexpected error in make_reservation: {str(e)}")  # Add debug logging
+        logger.error(f"Unexpected error in make_reservation: {str(e)}")
         db.session.rollback()
         if request.is_json:
             return jsonify({'error': 'Erreur lors de la création de la réservation'}), 500
@@ -801,44 +819,87 @@ def my_reservations():
 def edit_reservation(reservation_id):
     reservation = Reservation.query.get_or_404(reservation_id)
     
-    # Check if the user owns this reservation
-    if reservation.user_id != current_user.id:
-        flash('Vous n\'êtes pas autorisé à modifier cette réservation.', 'error')
+    # Check if user has permission to edit this reservation
+    if not current_user.is_admin and reservation.user_id != current_user.id:
+        flash('Vous n\'avez pas la permission de modifier cette réservation.', 'error')
         return redirect(url_for('my_reservations'))
     
     if request.method == 'POST':
-        room_id = int(request.form.get('room_id'))
-        start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d')
-        end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d')
-        
-        # Validate room capacity
-        room = Room.query.get(room_id)
-        
-        # Check for conflicts excluding the current reservation
-        conflicts = Reservation.query.filter(
-            Reservation.room_id == room_id,
-            Reservation.id != reservation_id,
-            ((Reservation.start_date <= start_date) & (Reservation.end_date >= start_date)) |
-            ((Reservation.start_date <= end_date) & (Reservation.end_date >= end_date))
-        ).first()
-        
-        if conflicts:
-            flash('Cette chambre est déjà réservée pour ces dates!', 'error')
+        try:
+            # Get and validate form data
+            start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d').date()
+            end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d').date()
+            number_of_guests = int(request.form.get('number_of_guests'))
+            current_date = datetime.now().date()
+            
+            # Validate dates
+            if start_date < current_date:
+                flash('La date de début doit être dans le futur.', 'error')
+                return redirect(url_for('edit_reservation', reservation_id=reservation_id))
+                
+            if end_date <= start_date:
+                flash('La date de fin doit être après la date de début.', 'error')
+                return redirect(url_for('edit_reservation', reservation_id=reservation_id))
+            
+            # Validate guest count
+            if number_of_guests > reservation.room.capacity:
+                flash(f'Cette chambre ne peut accueillir que {reservation.room.capacity} personnes.', 'error')
+                return redirect(url_for('edit_reservation', reservation_id=reservation_id))
+            
+            if number_of_guests < 1:
+                flash('Le nombre de personnes doit être supérieur à 0.', 'error')
+                return redirect(url_for('edit_reservation', reservation_id=reservation_id))
+            
+            # Check if room is available for these dates (excluding current reservation)
+            overlapping = Reservation.query.filter(
+                Reservation.room_id == reservation.room_id,
+                Reservation.id != reservation_id,
+                Reservation.end_date > start_date,
+                Reservation.start_date < end_date
+            ).first()
+            
+            if overlapping:
+                flash('La chambre n\'est pas disponible pour ces dates.', 'error')
+                return redirect(url_for('edit_reservation', reservation_id=reservation_id))
+            
+            # Update reservation
+            reservation.start_date = start_date
+            reservation.end_date = end_date
+            reservation.number_of_guests = number_of_guests
+            
+            db.session.commit()
+            
+            # Notify admins of the change
+            try:
+                subject = 'Modification de réservation'
+                body = f"""La réservation de {reservation.user.name} ({reservation.user.email}) a été modifiée.
+
+Chambre: {reservation.room.name}
+Nouvelles dates: du {start_date} au {end_date}
+Nombre de personnes: {number_of_guests}
+
+Modifié par: {current_user.name} ({current_user.email})"""
+                send_email_to_admins(subject, body)
+            except Exception as e:
+                logger.error(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
+            
+            flash('Réservation mise à jour avec succès!', 'success')
+            return redirect(url_for('my_reservations'))
+            
+        except ValueError as e:
+            logger.error(f"Error in edit_reservation: {str(e)}")
+            flash('Données de réservation invalides.', 'error')
             return redirect(url_for('edit_reservation', reservation_id=reservation_id))
-        
-        # Update reservation
-        reservation.room_id = room_id
-        reservation.start_date = start_date
-        reservation.end_date = end_date
-        
-        db.session.commit()
-        flash('Réservation mise à jour avec succès!', 'success')
-        return redirect(url_for('my_reservations'))
+        except Exception as e:
+            logger.error(f"Unexpected error in edit_reservation: {str(e)}")
+            db.session.rollback()
+            flash('Une erreur est survenue lors de la mise à jour de la réservation.', 'error')
+            return redirect(url_for('edit_reservation', reservation_id=reservation_id))
     
     # GET request - show edit form
     rooms = Room.query.all()
     return render_template('edit_reservation.html', 
-                         reservation=reservation, 
+                         reservation=reservation,
                          rooms=rooms)
 
 @app.route('/delete_reservation/<int:reservation_id>', methods=['POST'])

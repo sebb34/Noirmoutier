@@ -50,16 +50,16 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="check_in">Date d'arrivée</label>
-                    <input type="date" id="check_in" name="check_in" 
-                           value="{{ reservation.check_in.strftime('%Y-%m-%d') }}" 
+                    <label for="start_date">Date d'arrivée</label>
+                    <input type="date" id="start_date" name="start_date" 
+                           value="{{ reservation.start_date.strftime('%Y-%m-%d') }}" 
                            min="{{ now.strftime('%Y-%m-%d') }}" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="check_out">Date de départ</label>
-                    <input type="date" id="check_out" name="check_out" 
-                           value="{{ reservation.check_out.strftime('%Y-%m-%d') }}" 
+                    <label for="end_date">Date de départ</label>
+                    <input type="date" id="end_date" name="end_date" 
+                           value="{{ reservation.end_date.strftime('%Y-%m-%d') }}" 
                            min="{{ now.strftime('%Y-%m-%d') }}" required>
                 </div>
 
@@ -79,19 +79,19 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Ensure check-out date is after check-in date
-            const checkInInput = document.getElementById('check_in');
-            const checkOutInput = document.getElementById('check_out');
+            // Ensure end_date is after start_date
+            const startDateInput = document.getElementById('start_date');
+            const endDateInput = document.getElementById('end_date');
 
-            checkInInput.addEventListener('change', function() {
-                checkOutInput.min = this.value;
-                if (checkOutInput.value < this.value) {
-                    checkOutInput.value = this.value;
+            startDateInput.addEventListener('change', function() {
+                endDateInput.min = this.value;
+                if (endDateInput.value < this.value) {
+                    endDateInput.value = this.value;
                 }
             });
 
-            // Set initial min date for check-out
-            checkOutInput.min = checkInInput.value;
+            // Set initial min date for end_date
+            endDateInput.min = startDateInput.value;
         });
     </script>
 </body>
