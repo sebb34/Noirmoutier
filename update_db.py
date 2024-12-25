@@ -1,4 +1,4 @@
-from app import app, db, Room
+from app import app, db, Room, User
 
 def update_database():
     with app.app_context():
@@ -10,6 +10,17 @@ def update_database():
             # Create all tables with the new schema
             db.create_all()
             print("Created all tables with new schema")
+            
+            # Create admin user
+            admin = User(
+                email='bourrut@gmail.com',
+                name='Admin',
+                is_admin=True,
+                is_approved=True
+            )
+            admin.set_password('admin123')  # Set a secure password in production
+            db.session.add(admin)
+            print("Added admin user")
             
             # Add default rooms
             default_rooms = [

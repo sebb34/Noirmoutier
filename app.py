@@ -182,6 +182,12 @@ class Reservation(db.Model):
     room = db.relationship('Room', backref=db.backref('reservations', lazy=True))
     user = db.relationship('User', backref=db.backref('reservations', lazy=True))
 
+@app.context_processor
+def utility_processor():
+    return {
+        'now': datetime.now()
+    }
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -200,7 +206,7 @@ def login():
             return redirect(url_for('home'))
         flash('Email ou mot de passe incorrect.', 'error')
     
-    return render_template('login.html', now=datetime.now())
+    return render_template('login.html')
 
 @app.route('/logout')
 @login_required
@@ -268,72 +274,79 @@ def home():
 def view_reservations():
     return redirect(url_for('calendar'))
 
-@app.route('/make_reservation', methods=['POST'])
-@login_required
+@app.route('/make-reservation', methods=['POST'])
 def make_reservation():
-    if not current_user.is_approved:
-        flash('Votre compte doit être approuvé avant de pouvoir faire une réservation.', 'error')
-        return redirect(url_for('home'))
-
-    room_id = request.form.get('room_id')
-    start_date_str = request.form.get('start_date')
-    end_date_str = request.form.get('end_date')
-
-    if not all([room_id, start_date_str, end_date_str]):
-        flash('Tous les champs sont requis.', 'error')
-        return redirect(url_for('home'))
-
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Vous devez être connecté pour faire une réservation'}), 401
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Données invalides'}), 400
+    
+    # Validate required fields
+    required_fields = ['start_date', 'end_date', 'room_id']
+    if not all(field in data for field in required_fields):
+        return jsonify({'error': 'Tous les champs requis doivent être remplis'}), 400
+    
     try:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        room = Room.query.get_or_404(room_id)
-
-        # Vérifier si les dates sont valides
+        # Parse dates
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+        end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+        room_id = int(data['room_id'])
+        
+        # Validate dates
         if start_date >= end_date:
-            flash('La date de début doit être antérieure à la date de fin.', 'error')
-            return redirect(url_for('home'))
-
+            return jsonify({'error': 'La date de début doit être antérieure à la date de fin'}), 400
+        
         if start_date < datetime.now().date():
-            flash('La date de début ne peut pas être dans le passé.', 'error')
-            return redirect(url_for('home'))
-
-        # Vérifier les conflits de réservation
-        conflicting_reservations = Reservation.query.filter(
+            return jsonify({'error': 'La date de début ne peut pas être dans le passé'}), 400
+        
+        # Check if room exists
+        room = Room.query.get(room_id)
+        if not room:
+            return jsonify({'error': 'Chambre non trouvée'}), 404
+        
+        # Check for overlapping reservations
+        overlapping = Reservation.query.filter(
             Reservation.room_id == room_id,
-            Reservation.end_date > start_date,
-            Reservation.start_date < end_date
+            Reservation.start_date < end_date,
+            Reservation.end_date > start_date
         ).first()
-
-        if conflicting_reservations:
-            flash('La chambre est déjà réservée pour ces dates.', 'error')
-            return redirect(url_for('home'))
-
-        # Créer la réservation
+        
+        if overlapping:
+            return jsonify({'error': 'Cette période est déjà réservée pour cette chambre'}), 409
+        
+        # Create new reservation
         reservation = Reservation(
-            room_id=room_id,
-            user_id=current_user.id,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            room_id=room_id,
+            user_id=current_user.id
         )
+        
         db.session.add(reservation)
         db.session.commit()
-
-        # Envoyer un email aux administrateurs
-        subject = f'Nouvelle réservation de {current_user.name}'
+        
+        # Send email to admins
+        subject = f'Nouvelle réservation - {room.name}'
         body = f'''Une nouvelle réservation a été créée:
-        Chambre: {room.name}
-        Dates: du {start_date_str} au {end_date_str}
-        Utilisateur: {current_user.name} ({current_user.email})
-        '''
+        
+Chambre: {room.name}
+Utilisateur: {current_user.name} ({current_user.email})
+Date de début: {start_date}
+Date de fin: {end_date}
+'''
         send_email_to_admins(subject, body)
-
-        flash('Réservation créée avec succès!', 'success')
+        
+        return jsonify({'message': 'Réservation créée avec succès'}), 201
+        
+    except ValueError as e:
+        return jsonify({'error': 'Format de date invalide'}), 400
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Erreur lors de la création de la réservation: {str(e)}")
-        flash('Une erreur est survenue lors de la création de la réservation.', 'error')
-
-    return redirect(url_for('home'))
+        print(f"Error creating reservation: {str(e)}")
+        return jsonify({'error': 'Une erreur est survenue lors de la création de la réservation'}), 500
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -439,14 +452,14 @@ def profile():
         flash('Profil mis à jour avec succès!', 'success')
         return redirect(url_for('profile'))
     
-    return render_template('profile.html', now=datetime.now())
+    return render_template('profile.html')
 
 @app.route('/manage_users')
 @login_required
 @admin_required
 def manage_users():
     users = User.query.all()
-    return render_template('manage_users.html', users=users, now=datetime.now())
+    return render_template('manage_users.html', users=users)
 
 @app.route('/toggle_admin/<int:user_id>', methods=['POST'])
 @login_required
@@ -521,7 +534,7 @@ def reject_user(user_id):
 @admin_required
 def manage_rooms():
     rooms = Room.query.all()
-    return render_template('manage_rooms.html', rooms=rooms, now=datetime.now())
+    return render_template('manage_rooms.html', rooms=rooms)
 
 @app.route('/add_room', methods=['POST'])
 @login_required
@@ -828,8 +841,7 @@ def my_reservations():
     return render_template('my_reservations.html', 
                          reservations=reservations, 
                          rooms=rooms, 
-                         selected_room_id=room_id,
-                         now=datetime.now())
+                         selected_room_id=room_id)
 
 @app.route('/edit_reservation/<int:reservation_id>', methods=['GET', 'POST'])
 @login_required
@@ -874,8 +886,7 @@ def edit_reservation(reservation_id):
     rooms = Room.query.all()
     return render_template('edit_reservation.html', 
                          reservation=reservation, 
-                         rooms=rooms, 
-                         now=datetime.now())
+                         rooms=rooms)
 
 @app.route('/delete_reservation/<int:reservation_id>', methods=['POST'])
 @login_required
@@ -962,7 +973,7 @@ Ce lien expirera dans 1 heure.
         
         return redirect(url_for('login'))
     
-    return render_template('forgot_password.html', now=datetime.now())
+    return render_template('forgot_password.html')
 
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
@@ -984,7 +995,7 @@ def reset_password(token):
         flash('Votre mot de passe a été mis à jour.', 'success')
         return redirect(url_for('login'))
     
-    return render_template('reset_password.html', now=datetime.now())
+    return render_template('reset_password.html')
 
 if __name__ == '__main__':
     with app.app_context():
