@@ -33,28 +33,37 @@ def handle_room_image(image_file, old_image=None):
         if old_image:
             old_image_path = os.path.join(app.root_path, 'static', old_image)
             if os.path.exists(old_image_path):
-                os.remove(old_image_path)
+                try:
+                    os.remove(old_image_path)
+                except PermissionError:
+                    flash('Erreur lors de la suppression de l\'ancienne image', 'error')
+                    return old_image
         
         # Save new image
-        # Get the original extension
         _, ext = os.path.splitext(secure_filename(image_file.filename))
-        # Create a filename based on the room name (will be passed from the form)
         room_name = request.form.get('name', '').lower()
-        # Replace spaces and special characters with underscores
         room_name = ''.join(c if c.isalnum() else '_' for c in room_name)
-        # Add timestamp to prevent caching
+        # Add random string to prevent caching
+        random_string = secrets.token_hex(4)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{room_name}_{timestamp}{ext}"
+        filename = f"{room_name}_{timestamp}_{random_string}{ext}"
         
-        # Make sure the upload folder exists
-        os.makedirs(os.path.join(app.root_path, 'static', 'images', 'rooms'), exist_ok=True)
+        upload_folder = os.path.join(app.root_path, 'static', 'images', 'rooms')
+        os.makedirs(upload_folder, exist_ok=True)
         
-        # Save the file
-        full_path = os.path.join(app.root_path, 'static', 'images', 'rooms', filename)
-        image_file.save(full_path)
-        
-        # Return the relative path for database storage
-        return os.path.join('images', 'rooms', filename)
+        try:
+            # Ensure write permissions
+            os.chmod(upload_folder, 0o755)
+            
+            full_path = os.path.join(upload_folder, filename)
+            image_file.save(full_path)
+            os.chmod(full_path, 0o644)  # Set read permissions for the file
+            
+            return os.path.join('images', 'rooms', filename)
+        except (OSError, PermissionError) as e:
+            flash(f'Erreur lors de la sauvegarde de l\'image: {str(e)}', 'error')
+            return old_image
+            
     return old_image
 
 # Define available rooms
@@ -243,6 +252,20 @@ def parent_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def send_email_to_admins(subject, body):
+    """
+    Envoie un email à tous les administrateurs
+    """
+    admins = User.query.filter_by(is_admin=True).all()
+    for admin in admins:
+        msg = Message(
+            subject,
+            sender=app.config['MAIL_DEFAULT_SENDER'],
+            recipients=[admin.email]
+        )
+        msg.body = body
+        mail.send(msg)
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -390,28 +413,38 @@ def register():
         return redirect(url_for('home'))
     
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        name = request.form.get('name')
+        email = request.form['email']
+        name = request.form['name']
+        password = request.form['password']
         
         if User.query.filter_by(email=email).first():
-            flash('Cet email est déjà utilisé.', 'error')
+            flash('Un compte existe déjà avec cet email.', 'error')
             return redirect(url_for('register'))
         
-        user = User(
-            email=email,
-            name=name,
-            is_admin=False,
-            is_approved=False
-        )
-        user.set_password(password)
-        db.session.add(user)
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        new_user = User(email=email, password_hash=hashed_password, name=name)
+        db.session.add(new_user)
         db.session.commit()
+
+        # Envoyer un email aux administrateurs
+        subject = "Nouvelle inscription sur Maison Bourrut"
+        body = f"""Un nouvel utilisateur s'est inscrit sur le site :
         
-        flash('Inscription réussie ! Votre compte doit être approuvé par un administrateur avant de pouvoir vous connecter.', 'success')
+Nom : {name}
+Email : {email}
+
+Vous pouvez approuver ou rejeter cette inscription depuis la page de gestion des utilisateurs :
+{url_for('manage_users', _external=True)}
+"""
+        try:
+            send_email_to_admins(subject, body)
+        except Exception as e:
+            app.logger.error(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
+
+        flash('Votre compte a été créé avec succès. Un administrateur doit maintenant l\'approuver.', 'success')
         return redirect(url_for('login'))
     
-    return render_template('register.html', now=datetime.now())
+    return render_template('register.html')
 
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
@@ -983,6 +1016,93 @@ def reset_password(token):
         return redirect(url_for('login'))
     
     return render_template('reset_password.html', now=datetime.now())
+
+@app.route('/make-reservation', methods=['GET', 'POST'])
+@login_required
+def make_reservation():
+    if not current_user.is_approved:
+        flash('Votre compte doit être approuvé avant de pouvoir faire une réservation.', 'error')
+        return redirect(url_for('home'))
+
+    if request.method == 'GET':
+        rooms = Room.query.all()
+        return render_template('make_reservation.html', rooms=rooms)
+
+    room_id = request.form.get('room')
+    check_in_str = request.form.get('check_in')
+    check_out_str = request.form.get('check_out')
+    guest_name = request.form.get('guest_name')
+    email = request.form.get('email')
+    number_of_guests = int(request.form.get('number_of_guests', 1))
+
+    # Convertir les dates
+    try:
+        check_in = datetime.strptime(check_in_str, '%Y-%m-%d')
+        check_out = datetime.strptime(check_out_str, '%Y-%m-%d')
+    except ValueError:
+        flash('Format de date invalide.', 'error')
+        return redirect(url_for('make_reservation'))
+
+    # Vérifier les dates
+    if check_in >= check_out:
+        flash('La date de départ doit être après la date d\'arrivée.', 'error')
+        return redirect(url_for('make_reservation'))
+
+    if check_in.date() < datetime.now().date():
+        flash('La date d\'arrivée ne peut pas être dans le passé.', 'error')
+        return redirect(url_for('make_reservation'))
+
+    # Vérifier la disponibilité
+    room = Room.query.get(room_id)
+    if not room:
+        flash('Chambre invalide.', 'error')
+        return redirect(url_for('make_reservation'))
+
+    # Vérifier si la chambre est déjà réservée pour ces dates
+    existing_reservation = Reservation.query.filter(
+        Reservation.room_id == room_id,
+        Reservation.check_out > check_in,
+        Reservation.check_in < check_out
+    ).first()
+
+    if existing_reservation:
+        flash('Cette chambre est déjà réservée pour ces dates.', 'error')
+        return redirect(url_for('make_reservation'))
+
+    # Créer la réservation
+    reservation = Reservation(
+        guest_name=guest_name,
+        email=email,
+        room_id=room_id,
+        check_in=check_in,
+        check_out=check_out,
+        number_of_guests=number_of_guests,
+        user_id=current_user.id
+    )
+
+    db.session.add(reservation)
+    db.session.commit()
+
+    # Envoyer un email aux administrateurs
+    subject = "Nouvelle réservation sur Maison Bourrut"
+    body = f"""Une nouvelle réservation a été effectuée :
+
+Chambre : {room.name}
+Dates : du {check_in_str} au {check_out_str}
+Nombre de personnes : {number_of_guests}
+Réservé par : {guest_name} ({email})
+Utilisateur : {current_user.name} ({current_user.email})
+
+Vous pouvez voir toutes les réservations sur le calendrier :
+{url_for('calendar', _external=True)}
+"""
+    try:
+        send_email_to_admins(subject, body)
+    except Exception as e:
+        app.logger.error(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
+
+    flash('Réservation effectuée avec succès !', 'success')
+    return redirect(url_for('my_reservations'))
 
 if __name__ == '__main__':
     with app.app_context():
