@@ -219,7 +219,7 @@ def logout():
 @app.route('/')
 def home():
     rooms = Room.query.all()
-    current_date = datetime.now()
+    current_date = datetime.now().date()
     
     # Get all reservations
     reservations = Reservation.query.filter(
@@ -658,171 +658,121 @@ def delete_selected_reservations():
     return redirect(url_for('my_reservations'))
 
 def generate_calendar_html(year, month, reservations):
-    # French month names mapping
-    french_months = {
-        1: 'Janvier',
-        2: 'Février',
-        3: 'Mars',
-        4: 'Avril',
-        5: 'Mai',
-        6: 'Juin',
-        7: 'Juillet',
-        8: 'Août',
-        9: 'Septembre',
-        10: 'Octobre',
-        11: 'Novembre',
-        12: 'Décembre'
-    }
-
-    # Room colors
-    room_colors = {
-        'Chambre sur la rue': '#FF6B6B',  # Coral red
-        'Chambre côté jardin': '#4ECDC4',  # Turquoise
-        'Chambre des parents': '#45B7D1',  # Sky blue
-        'Chambre des enfants': '#96CEB4',  # Sage green
-        'Chambre du garage': '#FFEEAD',    # Light yellow
-    }
-    default_color = '#808080'
-
-    # Create calendar
-    cal_dates = cal.monthcalendar(year, month)
+    # Get the first day of the month and the number of days
+    first_day = datetime(year, month, 1)
+    if month == 12:
+        last_day = datetime(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        last_day = datetime(year, month + 1, 1) - timedelta(days=1)
     
-    # Get the month name in French
-    month_name = french_months[month]
+    # Get the weekday of the first day (0 = Monday, 6 = Sunday)
+    first_weekday = first_day.weekday()
+    
+    # Get the number of days in the month
+    num_days = last_day.day
     
     # Start building the HTML
-    html = f'<table class="calendar-table">\n'
-    html += f'<caption>{month_name} {year}</caption>\n'
+    html = '<table class="calendar">\n'
+    html += '<tr><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th><th>Dim</th></tr>\n'
     
-    # Add weekday headers
-    weekdays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
-    html += '<thead>\n<tr>\n'
-    for day in weekdays:
-        html += f'<th>{day}</th>\n'
-    html += '</tr>\n</thead>\n'
+    # Add empty cells for days before the first day of the month
+    html += '<tr>'
+    for i in range(first_weekday):
+        html += '<td class="empty"></td>'
     
-    # Add calendar days
-    html += '<tbody>\n'
-    for week in cal_dates:
-        html += '<tr>\n'
-        for day in week:
-            if day == 0:
-                html += '<td class="empty"></td>\n'
-            else:
-                date = datetime(year, month, day).date()
-                day_reservations = []
-                for reservation in reservations:
-                    if reservation.start_date <= date <= reservation.end_date:
-                        day_reservations.append(reservation)
-                
-                if day_reservations:
-                    reservation_html = ''
-                    for reservation in day_reservations:
-                        if current_user.id == reservation.user_id:
-                            color = room_colors.get(reservation.room.name, default_color)
-                            reservation_html += f'<a href="{url_for("my_reservations")}" class="reservation-marker clickable" style="background-color: {color};" title="{reservation.room.name} - {reservation.user.name}">'
-                            reservation_html += f'{reservation.room.name}</a>'
-                        else:
-                            color = room_colors.get(reservation.room.name, default_color)
-                            reservation_html += f'<div class="reservation-marker" style="background-color: {color};" title="{reservation.room.name} - {reservation.user.name}">'
-                            reservation_html += f'{reservation.room.name}</div>'
-                    
-                    html += f'<td class="has-events">\n'
-                    html += f'<div class="day-number">{day}</div>\n'
-                    html += f'<div class="events">{reservation_html}</div>\n'
-                    html += '</td>\n'
-                else:
-                    html += f'<td><div class="day-number">{day}</div></td>\n'
-        html += '</tr>\n'
-    html += '</tbody>\n'
+    # Add cells for each day
+    current_weekday = first_weekday
+    current_date = datetime.now().date()
+    
+    for day in range(1, num_days + 1):
+        if current_weekday == 0 and day != 1:
+            html += '</tr><tr>'
+        
+        date = datetime(year, month, day).date()
+        day_reservations = []
+        for reservation in reservations:
+            if reservation.start_date <= date <= reservation.end_date:
+                day_reservations.append(reservation)
+        
+        if day_reservations:
+            # Day has reservations
+            cell_class = 'reserved'
+            if date == current_date:
+                cell_class += ' today'
+            
+            tooltip = '<div class="tooltip">'
+            for reservation in day_reservations:
+                tooltip += f'{reservation.room.name} - {reservation.user.name}<br>'
+            tooltip += '</div>'
+            
+            html += f'<td class="{cell_class}">{day}{tooltip}</td>'
+        else:
+            # Day is free
+            cell_class = 'free'
+            if date == current_date:
+                cell_class += ' today'
+            if date < current_date:
+                cell_class += ' past'
+            
+            html += f'<td class="{cell_class}">{day}</td>'
+        
+        current_weekday = (current_weekday + 1) % 7
+    
+    # Add empty cells for remaining days in the last week
+    while current_weekday != 0:
+        html += '<td class="empty"></td>'
+        current_weekday = (current_weekday + 1) % 7
+    
+    html += '</tr>'
     html += '</table>'
     
     return html
 
-@app.route('/calendar')
-@app.route('/calendar/<int:year>/<int:month>')
-@login_required
+@app.route('/calendar', methods=['GET'])
+@app.route('/calendar/<int:year>/<int:month>', methods=['GET'])
 def calendar(year=None, month=None):
-    current_date = datetime.now()
     if year is None:
-        year = current_date.year
+        year = datetime.now().year
     if month is None:
-        month = current_date.month
-    
-    # Create date object for the selected month
-    current_date = datetime(year, month, 1)
-    
-    # Calculate previous month
-    if month == 1:
-        prev_month = datetime(year - 1, 12, 1)
-    else:
-        prev_month = datetime(year, month - 1, 1)
-    
-    # Calculate next month
+        month = datetime.now().month
+
+    # Get all reservations for the given month
+    start_date = datetime(year, month, 1).date()
     if month == 12:
-        next_month = datetime(year + 1, 1, 1)
+        end_date = datetime(year + 1, 1, 1).date()
     else:
-        next_month = datetime(year, month + 1, 1)
-    
-    # Get all reservations for the current month
-    start_date = current_date
-    if month == 12:
-        end_date = datetime(year + 1, 1, 1)
-    else:
-        end_date = datetime(year, month + 1, 1)
-    
+        end_date = datetime(year, month + 1, 1).date()
+
     reservations = Reservation.query.filter(
-        Reservation.end_date >= start_date,
-        Reservation.start_date < end_date
+        Reservation.start_date < end_date,
+        Reservation.end_date >= start_date
     ).all()
-    
-    # Generate calendar HTML
+
+    # Get the calendar HTML
     calendar_html = generate_calendar_html(year, month, reservations)
     
-    # Get all future reservations for the list view
-    future_reservations = Reservation.query.filter(
-        Reservation.end_date >= datetime.now()
-    ).order_by(Reservation.start_date).all()
-    
-    # Format reservations for display
-    formatted_reservations = []
-    for reservation in future_reservations:
-        days_until = (reservation.start_date - datetime.now()).days
-        status = 'en-cours' if reservation.start_date <= datetime.now() <= reservation.end_date else 'à-venir'
-        
-        formatted_reservations.append({
-            'room_id': reservation.room_id,  # Added room_id for linking
-            'room_name': reservation.room.name,
-            'room_color': {
-                'Chambre sur la rue': '#FF6B6B',
-                'Chambre côté jardin': '#4ECDC4',
-                'Chambre des parents': '#45B7D1',
-                'Chambre des enfants': '#96CEB4',
-                'Chambre du garage': '#FFEEAD'
-            }.get(reservation.room.name, '#808080'),
-            'start_date_display': reservation.start_date.strftime('%d/%m/%Y'),
-            'end_date_display': reservation.end_date.strftime('%d/%m/%Y'),
-            'user': reservation.user,
-            'days_until': days_until,
-            'status': status
-        })
-    
+    # Get the month name in French
     french_months = {
         1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
         5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
         9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
     }
-    
-    current_month_name = french_months[month]
-    
+    month_name = french_months[month]
+
+    # Calculate previous and next month/year
+    prev_month = month - 1 if month > 1 else 12
+    prev_year = year if month > 1 else year - 1
+    next_month = month + 1 if month < 12 else 1
+    next_year = year if month < 12 else year + 1
+
     return render_template('calendar.html',
                          calendar_html=calendar_html,
-                         current_month_name=current_month_name,
-                         year=year,
-                         month=month,
+                         current_month=month_name,
+                         current_year=year,
                          prev_month=prev_month,
+                         prev_year=prev_year,
                          next_month=next_month,
-                         reservations=formatted_reservations)
+                         next_year=next_year)
 
 @app.route('/my_reservations')
 @login_required
