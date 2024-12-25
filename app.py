@@ -113,18 +113,17 @@ class User(UserMixin, db.Model):
     registration_date = db.Column(db.DateTime, default=datetime.utcnow)
     
     def set_password(self, password):
-        if isinstance(password, str):
-            password = password.encode('utf-8')
-        self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
+        salt = bcrypt.gensalt()
+        self.password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
     
     def check_password(self, password):
-        if isinstance(password, str):
-            password = password.encode('utf-8')
-        if isinstance(self.password_hash, str):
-            stored_hash = self.password_hash.encode('utf-8')
-        else:
-            stored_hash = self.password_hash
-        return bcrypt.checkpw(password, stored_hash)
+        try:
+            return bcrypt.checkpw(
+                password.encode('utf-8'),
+                self.password_hash.encode('utf-8')
+            )
+        except Exception:
+            return False
 
     def get_reset_token(self):
         # Generate a random token
@@ -421,41 +420,60 @@ def register():
         return redirect(url_for('home'))
     
     if request.method == 'POST':
-        email = request.form['email']
-        name = request.form['name']
-        password = request.form['password']
-        
-        if User.query.filter_by(email=email).first():
-            flash('Un compte existe déjà avec cet email.', 'error')
-            return redirect(url_for('register'))
-        
-        new_user = User(
-            email=email,
-            name=name,
-            is_admin=False,
-            is_approved=False
-        )
-        new_user.set_password(password)
-        db.session.add(new_user)
-        db.session.commit()
-
-        # Envoyer un email aux administrateurs
-        subject = "Nouvelle inscription sur Maison Bourrut"
-        body = f"""Un nouvel utilisateur s'est inscrit sur le site :
-        
+        try:
+            email = request.form.get('email')
+            name = request.form.get('name')
+            password = request.form.get('password')
+            
+            if not email or not name or not password:
+                flash('Tous les champs sont obligatoires.', 'error')
+                return redirect(url_for('register'))
+            
+            if User.query.filter_by(email=email).first():
+                flash('Un compte existe déjà avec cet email.', 'error')
+                return redirect(url_for('register'))
+            
+            new_user = User(
+                email=email,
+                name=name,
+                is_admin=False,
+                is_approved=False,
+                registration_date=datetime.utcnow()
+            )
+            new_user.set_password(password)
+            
+            try:
+                db.session.add(new_user)
+                db.session.commit()
+                
+                # Envoyer un email aux administrateurs
+                subject = "Nouvelle inscription sur Maison Bourrut"
+                body = f"""Un nouvel utilisateur s'est inscrit sur le site :
+                
 Nom : {name}
 Email : {email}
 
 Vous pouvez approuver ou rejeter cette inscription depuis la page de gestion des utilisateurs :
 {url_for('manage_users', _external=True)}
 """
-        try:
-            send_email_to_admins(subject, body)
+                try:
+                    send_email_to_admins(subject, body)
+                except Exception as e:
+                    app.logger.error(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
+                
+                flash('Votre compte a été créé avec succès. Un administrateur doit maintenant l\'approuver.', 'success')
+                return redirect(url_for('login'))
+                
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"Erreur lors de l'enregistrement de l'utilisateur : {str(e)}")
+                flash('Une erreur est survenue lors de la création du compte. Veuillez réessayer.', 'error')
+                return redirect(url_for('register'))
+                
         except Exception as e:
-            app.logger.error(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
-
-        flash('Votre compte a été créé avec succès. Un administrateur doit maintenant l\'approuver.', 'success')
-        return redirect(url_for('login'))
+            app.logger.error(f"Erreur lors de l'inscription : {str(e)}")
+            flash('Une erreur est survenue. Veuillez réessayer.', 'error')
+            return redirect(url_for('register'))
     
     return render_template('register.html')
 
