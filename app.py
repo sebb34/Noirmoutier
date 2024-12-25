@@ -219,56 +219,27 @@ def logout():
 @app.route('/')
 def home():
     rooms = Room.query.all()
+    current_date = datetime.now().date()
     
-    # Get current date
-    current_date = datetime.now()
-    
-    # Get only the next 3 upcoming reservations
+    # Get all reservations
     reservations = Reservation.query.filter(
         Reservation.end_date >= current_date
-    ).order_by(Reservation.start_date).limit(3).all()
-    
-    # Format reservations for display
-    formatted_reservations = []
-    french_months = {
-        1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
-        5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
-        9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
-    }
-    
-    for reservation in reservations:
-        days_until = (reservation.start_date - current_date.date()).days
-        status = 'en-cours' if reservation.start_date.date() <= current_date.date() <= reservation.end_date.date() else 'à-venir'
-        
-        formatted_reservations.append({
-            'room_id': reservation.room_id,  # Added room_id for linking
-            'room_name': reservation.room.name,
-            'room_color': {
-                'Chambre sur la rue': '#FF6B6B',
-                'Chambre côté jardin': '#4ECDC4',
-                'Chambre des parents': '#45B7D1',
-                'Chambre des enfants': '#96CEB4',
-                'Chambre du garage': '#FFEEAD'
-            }.get(reservation.room.name, '#808080'),
-            'start_date': reservation.start_date.strftime('%d %B %Y'),
-            'end_date': reservation.end_date.strftime('%d %B %Y'),
-            'user_name': reservation.user.name,
-            'days_until': days_until,
-            'status': status
-        })
-    
-    # Get current month and next month for display
-    next_month = (current_date.replace(day=1) + timedelta(days=32)).replace(day=1)
-    current_month_name = french_months[current_date.month]
-    next_month_name = french_months[next_month.month]
-    
-    return render_template('index.html', 
-                         rooms=rooms,
-                         reservations=formatted_reservations,
-                         current_month_name=current_month_name,
-                         next_month_name=next_month_name,
-                         current_year=current_date.year,
-                         next_year=next_month.year)
+    ).order_by(Reservation.start_date).all()
+
+    # Group reservations by room
+    room_reservations = {}
+    for room in rooms:
+        room_reservations[room.id] = []
+        for reservation in reservations:
+            if reservation.room_id == room.id:
+                status = 'en-cours' if reservation.start_date <= current_date <= reservation.end_date else 'à-venir'
+                room_reservations[room.id].append({
+                    'start_date': reservation.start_date,
+                    'end_date': reservation.end_date,
+                    'status': status
+                })
+
+    return render_template('home.html', rooms=rooms, room_reservations=room_reservations)
 
 @app.route('/reservations', methods=['GET'])
 @login_required
