@@ -219,28 +219,28 @@ def logout():
 @app.route('/')
 def home():
     rooms = Room.query.all()
-    current_date = datetime.now().date()
-    
-    # Get all reservations
-    reservations = Reservation.query.filter(
-        Reservation.end_date >= current_date
-    ).order_by(Reservation.start_date).all()
-
-    # Group reservations by room
     room_reservations = {}
-    for room in rooms:
-        room_reservations[room.id] = []
-        for reservation in reservations:
-            if reservation.room_id == room.id:
-                status = 'en-cours' if reservation.start_date <= current_date <= reservation.end_date else 'à-venir'
-                room_reservations[room.id].append({
-                    'start_date': reservation.start_date,
-                    'end_date': reservation.end_date,
-                    'status': status,
-                    'user': reservation.user
-                })
+    next_reservations = []
+    
+    if current_user.is_authenticated:
+        # Get room reservations
+        for room in rooms:
+            future_reservations = Reservation.query.filter(
+                Reservation.room_id == room.id,
+                Reservation.end_date >= datetime.now()
+            ).order_by(Reservation.start_date).all()
+            room_reservations[room.id] = future_reservations
+        
+        # Get next 3 reservations across all rooms
+        next_reservations = Reservation.query.filter(
+            Reservation.end_date >= datetime.now()
+        ).order_by(Reservation.start_date).limit(3).all()
 
-    return render_template('home.html', rooms=rooms, room_reservations=room_reservations)
+    return render_template('home.html', 
+                         rooms=rooms, 
+                         room_reservations=room_reservations,
+                         next_reservations=next_reservations,
+                         now=datetime.now())
 
 @app.route('/reservations', methods=['GET'])
 @login_required
