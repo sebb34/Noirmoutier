@@ -153,10 +153,12 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     is_approved = db.Column(db.Boolean, default=False)
-    
+    reset_token = db.Column(db.String(100), unique=True)
+    reset_token_expiry = db.Column(db.DateTime)
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
-    
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
@@ -167,21 +169,17 @@ def load_user(user_id):
 class Room(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    capacity = db.Column(db.Integer, nullable=False)
+    capacity = db.Column(db.Integer)
     description = db.Column(db.Text)
-    image = db.Column(db.String(200))  # Path to the room's image
+    image = db.Column(db.String(200))
 
 class Reservation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    guest_name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
     room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
-    room = db.relationship('Room', backref=db.backref('reservations', lazy=True))
-    check_in = db.Column(db.DateTime, nullable=False)
-    check_out = db.Column(db.DateTime, nullable=False)
-    number_of_guests = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    room = db.relationship('Room', backref=db.backref('reservations', lazy=True))
     user = db.relationship('User', backref=db.backref('reservations', lazy=True))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -220,8 +218,8 @@ def home():
     
     # Get only the next 3 upcoming reservations
     reservations = Reservation.query.filter(
-        Reservation.check_out >= current_date
-    ).order_by(Reservation.check_in).limit(3).all()
+        Reservation.end_date >= current_date
+    ).order_by(Reservation.start_date).limit(3).all()
     
     # Format reservations for display
     formatted_reservations = []
@@ -232,8 +230,8 @@ def home():
     }
     
     for reservation in reservations:
-        days_until = (reservation.check_in.date() - current_date.date()).days
-        status = 'en-cours' if reservation.check_in.date() <= current_date.date() <= reservation.check_out.date() else 'à-venir'
+        days_until = (reservation.start_date - current_date.date()).days
+        status = 'en-cours' if reservation.start_date.date() <= current_date.date() <= reservation.end_date.date() else 'à-venir'
         
         formatted_reservations.append({
             'room_id': reservation.room_id,  # Added room_id for linking
@@ -245,8 +243,8 @@ def home():
                 'Chambre des enfants': '#96CEB4',
                 'Chambre du garage': '#FFEEAD'
             }.get(reservation.room.name, '#808080'),
-            'start_date': reservation.check_in.strftime('%d %B %Y'),
-            'end_date': reservation.check_out.strftime('%d %B %Y'),
+            'start_date': reservation.start_date.strftime('%d %B %Y'),
+            'end_date': reservation.end_date.strftime('%d %B %Y'),
             'user_name': reservation.user.name,
             'days_until': days_until,
             'status': status
@@ -270,60 +268,72 @@ def home():
 def view_reservations():
     return redirect(url_for('calendar'))
 
-@app.route('/make-reservation', methods=['GET', 'POST'])
+@app.route('/make_reservation', methods=['POST'])
 @login_required
 def make_reservation():
     if not current_user.is_approved:
-        flash('Votre compte doit être approuvé avant de pouvoir faire des réservations.', 'error')
+        flash('Votre compte doit être approuvé avant de pouvoir faire une réservation.', 'error')
         return redirect(url_for('home'))
-
-    if request.method == 'GET':
-        rooms = Room.query.all()
-        return render_template('make_reservation.html', now=datetime.now(), rooms=rooms)
 
     room_id = request.form.get('room_id')
-    room = Room.query.get_or_404(room_id)
-    
-    # Vérifier si c'est la chambre des parents
-    if room.name == 'Chambre des parents' and not current_user.is_parent:
-        flash('La Chambre des parents est réservée aux parents uniquement.', 'error')
+    start_date_str = request.form.get('start_date')
+    end_date_str = request.form.get('end_date')
+
+    if not all([room_id, start_date_str, end_date_str]):
+        flash('Tous les champs sont requis.', 'error')
         return redirect(url_for('home'))
 
-    guest_name = request.form.get('guest_name')
-    email = request.form.get('email')
-    check_in = datetime.strptime(request.form.get('check_in'), '%Y-%m-%d')
-    check_out = datetime.strptime(request.form.get('check_out'), '%Y-%m-%d')
-    number_of_guests = int(request.form.get('number_of_guests'))
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        room = Room.query.get_or_404(room_id)
 
-    # Validate room capacity
-    if number_of_guests > room.capacity:
-        flash(f"Le nombre de personnes dépasse la capacité de la chambre ({room.capacity} personnes maximum)", 'error')
-        return redirect(url_for('make_reservation'))
+        # Vérifier si les dates sont valides
+        if start_date >= end_date:
+            flash('La date de début doit être antérieure à la date de fin.', 'error')
+            return redirect(url_for('home'))
 
-    # Check for conflicts
-    conflicts = Reservation.query.filter(
-        Reservation.room_id == room_id,
-        ((Reservation.check_in <= check_in) & (Reservation.check_out >= check_in)) |
-        ((Reservation.check_in <= check_out) & (Reservation.check_out >= check_out))
-    ).first()
+        if start_date < datetime.now().date():
+            flash('La date de début ne peut pas être dans le passé.', 'error')
+            return redirect(url_for('home'))
 
-    if conflicts:
-        flash('Cette chambre est déjà réservée pour ces dates!', 'error')
-        return redirect(url_for('make_reservation'))
+        # Vérifier les conflits de réservation
+        conflicting_reservations = Reservation.query.filter(
+            Reservation.room_id == room_id,
+            Reservation.end_date > start_date,
+            Reservation.start_date < end_date
+        ).first()
 
-    new_reservation = Reservation(
-        guest_name=current_user.name,
-        email=current_user.email,
-        room_id=room_id,
-        check_in=check_in,
-        check_out=check_out,
-        number_of_guests=number_of_guests,
-        user_id=current_user.id
-    )
-    db.session.add(new_reservation)
-    db.session.commit()
-    flash('Réservation effectuée avec succès!', 'success')
-    return redirect(url_for('view_reservations'))
+        if conflicting_reservations:
+            flash('La chambre est déjà réservée pour ces dates.', 'error')
+            return redirect(url_for('home'))
+
+        # Créer la réservation
+        reservation = Reservation(
+            room_id=room_id,
+            user_id=current_user.id,
+            start_date=start_date,
+            end_date=end_date
+        )
+        db.session.add(reservation)
+        db.session.commit()
+
+        # Envoyer un email aux administrateurs
+        subject = f'Nouvelle réservation de {current_user.name}'
+        body = f'''Une nouvelle réservation a été créée:
+        Chambre: {room.name}
+        Dates: du {start_date_str} au {end_date_str}
+        Utilisateur: {current_user.name} ({current_user.email})
+        '''
+        send_email_to_admins(subject, body)
+
+        flash('Réservation créée avec succès!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Erreur lors de la création de la réservation: {str(e)}")
+        flash('Une erreur est survenue lors de la création de la réservation.', 'error')
+
+    return redirect(url_for('home'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -370,7 +380,6 @@ def register():
                 name=name,
                 is_admin=False,
                 is_approved=False,
-                registration_date=datetime.utcnow()
             )
             new_user.set_password(password)
             
@@ -687,7 +696,7 @@ def generate_calendar_html(year, month, reservations):
                 date = datetime(year, month, day).date()
                 day_reservations = []
                 for reservation in reservations:
-                    if reservation.check_in.date() <= date <= reservation.check_out.date():
+                    if reservation.start_date.date() <= date <= reservation.end_date.date():
                         day_reservations.append(reservation)
                 
                 if day_reservations:
@@ -747,8 +756,8 @@ def calendar(year=None, month=None):
         end_date = datetime(year, month + 1, 1)
     
     reservations = Reservation.query.filter(
-        Reservation.check_out >= start_date,
-        Reservation.check_in < end_date
+        Reservation.end_date >= start_date,
+        Reservation.start_date < end_date
     ).all()
     
     # Generate calendar HTML
@@ -756,14 +765,14 @@ def calendar(year=None, month=None):
     
     # Get all future reservations for the list view
     future_reservations = Reservation.query.filter(
-        Reservation.check_out >= datetime.now()
-    ).order_by(Reservation.check_in).all()
+        Reservation.end_date >= datetime.now()
+    ).order_by(Reservation.start_date).all()
     
     # Format reservations for display
     formatted_reservations = []
     for reservation in future_reservations:
-        days_until = (reservation.check_in.date() - datetime.now().date()).days
-        status = 'en-cours' if reservation.check_in.date() <= datetime.now().date() <= reservation.check_out.date() else 'à-venir'
+        days_until = (reservation.start_date.date() - datetime.now().date()).days
+        status = 'en-cours' if reservation.start_date.date() <= datetime.now().date() <= reservation.end_date.date() else 'à-venir'
         
         formatted_reservations.append({
             'room_id': reservation.room_id,  # Added room_id for linking
@@ -775,8 +784,8 @@ def calendar(year=None, month=None):
                 'Chambre des enfants': '#96CEB4',
                 'Chambre du garage': '#FFEEAD'
             }.get(reservation.room.name, '#808080'),
-            'start_date_display': reservation.check_in.strftime('%d/%m/%Y'),
-            'end_date_display': reservation.check_out.strftime('%d/%m/%Y'),
+            'start_date_display': reservation.start_date.strftime('%d/%m/%Y'),
+            'end_date_display': reservation.end_date.strftime('%d/%m/%Y'),
             'user': reservation.user,
             'days_until': days_until,
             'status': status
@@ -813,7 +822,7 @@ def my_reservations():
         if room_id:
             query = query.filter_by(room_id=room_id)
 
-    reservations = query.order_by(Reservation.check_in).all()
+    reservations = query.order_by(Reservation.start_date).all()
     rooms = Room.query.all()  # Get all rooms for the filter dropdown
     
     return render_template('my_reservations.html', 
@@ -834,22 +843,18 @@ def edit_reservation(reservation_id):
     
     if request.method == 'POST':
         room_id = int(request.form.get('room_id'))
-        check_in = datetime.strptime(request.form.get('check_in'), '%Y-%m-%d')
-        check_out = datetime.strptime(request.form.get('check_out'), '%Y-%m-%d')
-        number_of_guests = int(request.form.get('number_of_guests'))
+        start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d')
+        end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d')
         
         # Validate room capacity
         room = Room.query.get(room_id)
-        if number_of_guests > room.capacity:
-            flash(f"Le nombre de personnes dépasse la capacité de la chambre ({room.capacity} personnes maximum)", 'error')
-            return redirect(url_for('edit_reservation', reservation_id=reservation_id))
         
         # Check for conflicts excluding the current reservation
         conflicts = Reservation.query.filter(
             Reservation.room_id == room_id,
             Reservation.id != reservation_id,
-            ((Reservation.check_in <= check_in) & (Reservation.check_out >= check_in)) |
-            ((Reservation.check_in <= check_out) & (Reservation.check_out >= check_out))
+            ((Reservation.start_date <= start_date) & (Reservation.end_date >= start_date)) |
+            ((Reservation.start_date <= end_date) & (Reservation.end_date >= end_date))
         ).first()
         
         if conflicts:
@@ -858,9 +863,8 @@ def edit_reservation(reservation_id):
         
         # Update reservation
         reservation.room_id = room_id
-        reservation.check_in = check_in
-        reservation.check_out = check_out
-        reservation.number_of_guests = number_of_guests
+        reservation.start_date = start_date
+        reservation.end_date = end_date
         
         db.session.commit()
         flash('Réservation mise à jour avec succès!', 'success')
