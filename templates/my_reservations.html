@@ -201,7 +201,7 @@
                     <div class="reservation-header">
                         <h3>{{ reservation.room.name }}</h3>
                         <span class="reservation-dates">
-                            Du {{ reservation.check_in.strftime('%d/%m/%Y') }} au {{ reservation.check_out.strftime('%d/%m/%Y') }}
+                            Du {{ reservation.start_date.strftime('%d/%m/%Y') }} au {{ reservation.end_date.strftime('%d/%m/%Y') }}
                         </span>
                     </div>
                     <div class="reservation-details">
