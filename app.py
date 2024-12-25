@@ -179,6 +179,7 @@ class Reservation(db.Model):
     end_date = db.Column(db.Date, nullable=False)
     room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    number_of_guests = db.Column(db.Integer, nullable=False)
     room = db.relationship('Room', backref=db.backref('reservations', lazy=True))
     user = db.relationship('User', backref=db.backref('reservations', lazy=True))
 
@@ -287,8 +288,8 @@ def make_reservation():
     else:
         data = {
             'room_id': request.form.get('room_id'),
-            'check_in': request.form.get('check_in'),
-            'check_out': request.form.get('check_out'),
+            'start_date': request.form.get('check_in'),
+            'end_date': request.form.get('check_out'),
             'number_of_guests': request.form.get('number_of_guests')
         }
     
@@ -299,8 +300,8 @@ def make_reservation():
     try:
         # Convert string inputs to appropriate types
         room_id = int(data['room_id'])
-        check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
-        check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+        end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
         number_of_guests = int(data['number_of_guests'])
 
         # Validate the room exists
@@ -321,8 +322,8 @@ def make_reservation():
         # Check if room is available for these dates
         overlapping = Reservation.query.filter(
             Reservation.room_id == room_id,
-            Reservation.end_date > check_in,
-            Reservation.start_date < check_out
+            Reservation.end_date > start_date,
+            Reservation.start_date < end_date
         ).first()
 
         if overlapping:
@@ -335,8 +336,8 @@ def make_reservation():
         reservation = Reservation(
             user_id=current_user.id,
             room_id=room_id,
-            start_date=check_in,
-            end_date=check_out,
+            start_date=start_date,
+            end_date=end_date,
             number_of_guests=number_of_guests
         )
 
@@ -350,8 +351,8 @@ def make_reservation():
                 recipients=[app.config['ADMIN_EMAIL']],
                 body=f'Nouvelle réservation de {current_user.name} ({current_user.email})\n'
                      f'Chambre: {room.name}\n'
-                     f'Du: {check_in}\n'
-                     f'Au: {check_out}\n'
+                     f'Du: {start_date}\n'
+                     f'Au: {end_date}\n'
                      f'Nombre de personnes: {number_of_guests}'
             )
             mail.send(msg)
@@ -364,12 +365,14 @@ def make_reservation():
         return redirect(url_for('my_reservations'))
 
     except (ValueError, KeyError) as e:
+        print(f"Error in make_reservation: {str(e)}")  # Add debug logging
         if request.is_json:
             return jsonify({'error': 'Données de réservation invalides'}), 400
         flash('Données de réservation invalides.', 'error')
         return redirect(url_for('make_reservation'))
 
     except Exception as e:
+        print(f"Unexpected error in make_reservation: {str(e)}")  # Add debug logging
         db.session.rollback()
         if request.is_json:
             return jsonify({'error': 'Erreur lors de la création de la réservation'}), 500
