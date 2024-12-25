@@ -274,79 +274,107 @@ def home():
 def view_reservations():
     return redirect(url_for('calendar'))
 
-@app.route('/make-reservation', methods=['POST'])
+@app.route('/make-reservation', methods=['GET', 'POST'])
+@login_required
 def make_reservation():
-    if not current_user.is_authenticated:
-        return jsonify({'error': 'Vous devez être connecté pour faire une réservation'}), 401
-    
-    data = request.get_json()
+    if request.method == 'GET':
+        rooms = Room.query.all()
+        return render_template('make_reservation.html', rooms=rooms)
+        
+    # Handle POST request
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = {
+            'room_id': request.form.get('room_id'),
+            'check_in': request.form.get('check_in'),
+            'check_out': request.form.get('check_out'),
+            'number_of_guests': request.form.get('number_of_guests')
+        }
     
     if not data:
-        return jsonify({'error': 'Données invalides'}), 400
-    
-    # Validate required fields
-    required_fields = ['start_date', 'end_date', 'room_id']
-    if not all(field in data for field in required_fields):
-        return jsonify({'error': 'Tous les champs requis doivent être remplis'}), 400
-    
+        flash('Données de réservation manquantes.', 'error')
+        return redirect(url_for('make_reservation'))
+
     try:
-        # Parse dates
-        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
-        end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+        # Convert string inputs to appropriate types
         room_id = int(data['room_id'])
-        
-        # Validate dates
-        if start_date >= end_date:
-            return jsonify({'error': 'La date de début doit être antérieure à la date de fin'}), 400
-        
-        if start_date < datetime.now().date():
-            return jsonify({'error': 'La date de début ne peut pas être dans le passé'}), 400
-        
-        # Check if room exists
+        check_in = datetime.strptime(data['check_in'], '%Y-%m-%d').date()
+        check_out = datetime.strptime(data['check_out'], '%Y-%m-%d').date()
+        number_of_guests = int(data['number_of_guests'])
+
+        # Validate the room exists
         room = Room.query.get(room_id)
         if not room:
-            return jsonify({'error': 'Chambre non trouvée'}), 404
-        
-        # Check for overlapping reservations
+            if request.is_json:
+                return jsonify({'error': 'Chambre non trouvée'}), 404
+            flash('Chambre non trouvée.', 'error')
+            return redirect(url_for('make_reservation'))
+
+        # Validate guest count
+        if number_of_guests > room.capacity:
+            if request.is_json:
+                return jsonify({'error': f'Cette chambre ne peut accueillir que {room.capacity} personnes'}), 400
+            flash(f'Cette chambre ne peut accueillir que {room.capacity} personnes.', 'error')
+            return redirect(url_for('make_reservation'))
+
+        # Check if room is available for these dates
         overlapping = Reservation.query.filter(
             Reservation.room_id == room_id,
-            Reservation.start_date < end_date,
-            Reservation.end_date > start_date
+            Reservation.end_date > check_in,
+            Reservation.start_date < check_out
         ).first()
-        
+
         if overlapping:
-            return jsonify({'error': 'Cette période est déjà réservée pour cette chambre'}), 409
-        
-        # Create new reservation
+            if request.is_json:
+                return jsonify({'error': 'La chambre n\'est pas disponible pour ces dates'}), 400
+            flash('La chambre n\'est pas disponible pour ces dates.', 'error')
+            return redirect(url_for('make_reservation'))
+
+        # Create the reservation
         reservation = Reservation(
-            start_date=start_date,
-            end_date=end_date,
+            user_id=current_user.id,
             room_id=room_id,
-            user_id=current_user.id
+            start_date=check_in,
+            end_date=check_out,
+            number_of_guests=number_of_guests
         )
-        
+
         db.session.add(reservation)
         db.session.commit()
-        
-        # Send email to admins
-        subject = f'Nouvelle réservation - {room.name}'
-        body = f'''Une nouvelle réservation a été créée:
-        
-Chambre: {room.name}
-Utilisateur: {current_user.name} ({current_user.email})
-Date de début: {start_date}
-Date de fin: {end_date}
-'''
-        send_email_to_admins(subject, body)
-        
-        return jsonify({'message': 'Réservation créée avec succès'}), 201
-        
-    except ValueError as e:
-        return jsonify({'error': 'Format de date invalide'}), 400
+
+        # Send email to admin
+        try:
+            msg = Message(
+                'Nouvelle réservation',
+                recipients=[app.config['ADMIN_EMAIL']],
+                body=f'Nouvelle réservation de {current_user.name} ({current_user.email})\n'
+                     f'Chambre: {room.name}\n'
+                     f'Du: {check_in}\n'
+                     f'Au: {check_out}\n'
+                     f'Nombre de personnes: {number_of_guests}'
+            )
+            mail.send(msg)
+        except Exception as e:
+            print(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
+
+        if request.is_json:
+            return jsonify({'message': 'Réservation créée avec succès'}), 201
+        flash('Réservation créée avec succès!', 'success')
+        return redirect(url_for('my_reservations'))
+
+    except (ValueError, KeyError) as e:
+        if request.is_json:
+            return jsonify({'error': 'Données de réservation invalides'}), 400
+        flash('Données de réservation invalides.', 'error')
+        return redirect(url_for('make_reservation'))
+
     except Exception as e:
         db.session.rollback()
-        print(f"Error creating reservation: {str(e)}")
-        return jsonify({'error': 'Une erreur est survenue lors de la création de la réservation'}), 500
+        if request.is_json:
+            return jsonify({'error': 'Erreur lors de la création de la réservation'}), 500
+        flash('Erreur lors de la création de la réservation.', 'error')
+        return redirect(url_for('make_reservation'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
