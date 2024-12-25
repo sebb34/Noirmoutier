@@ -113,10 +113,18 @@ class User(UserMixin, db.Model):
     registration_date = db.Column(db.DateTime, default=datetime.utcnow)
     
     def set_password(self, password):
-        self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        if isinstance(password, str):
+            password = password.encode('utf-8')
+        self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
     
     def check_password(self, password):
-        return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
+        if isinstance(password, str):
+            password = password.encode('utf-8')
+        if isinstance(self.password_hash, str):
+            stored_hash = self.password_hash.encode('utf-8')
+        else:
+            stored_hash = self.password_hash
+        return bcrypt.checkpw(password, stored_hash)
 
     def get_reset_token(self):
         # Generate a random token
@@ -421,8 +429,13 @@ def register():
             flash('Un compte existe déjà avec cet email.', 'error')
             return redirect(url_for('register'))
         
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        new_user = User(email=email, password_hash=hashed_password, name=name)
+        new_user = User(
+            email=email,
+            name=name,
+            is_admin=False,
+            is_approved=False
+        )
+        new_user.set_password(password)
         db.session.add(new_user)
         db.session.commit()
 
