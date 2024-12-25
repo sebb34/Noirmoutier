@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime, timedelta
-import bcrypt
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -103,7 +103,7 @@ ROOMS = {
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128))
+    password_hash = db.Column(db.String(256))
     name = db.Column(db.String(100), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     is_approved = db.Column(db.Boolean, default=False)
@@ -113,17 +113,10 @@ class User(UserMixin, db.Model):
     registration_date = db.Column(db.DateTime, default=datetime.utcnow)
     
     def set_password(self, password):
-        salt = bcrypt.gensalt()
-        self.password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+        self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):
-        try:
-            return bcrypt.checkpw(
-                password.encode('utf-8'),
-                self.password_hash.encode('utf-8')
-            )
-        except Exception:
-            return False
+        return check_password_hash(self.password_hash, password)
 
     def get_reset_token(self):
         # Generate a random token
@@ -445,6 +438,7 @@ def register():
             try:
                 db.session.add(new_user)
                 db.session.commit()
+                app.logger.info(f"Nouvel utilisateur créé : {email}")
                 
                 # Envoyer un email aux administrateurs
                 subject = "Nouvelle inscription sur Maison Bourrut"
