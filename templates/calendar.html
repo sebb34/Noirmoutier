@@ -7,6 +7,274 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <style>
+        .calendar-section {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .calendar-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .month-navigation {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-button {
+            padding: 8px 16px;
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.3s;
+        }
+
+        .nav-button:hover {
+            background-color: #e0e0e0;
+        }
+
+        .calendar {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            table-layout: fixed; /* Add this to ensure equal column widths */
+        }
+
+        .calendar th {
+            background-color: #4a90e2;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight: 600;
+            width: 14.28%; /* Equal width for each day (100% / 7) */
+        }
+
+        .calendar td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            height: 120px; /* Fixed height for all cells */
+            vertical-align: top;
+            position: relative;
+            width: 14.28%; /* Equal width for each day (100% / 7) */
+        }
+
+        .calendar td.empty {
+            background-color: #f9f9f9;
+        }
+
+        .calendar td.today {
+            background-color: #fff3e0;
+        }
+
+        .date-number {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            position: absolute;
+            top: 8px;
+            left: 8px;
+        }
+
+        .reservations {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 32px; /* Space for date number */
+            max-height: calc(100% - 40px); /* Subtract space for date number */
+            overflow-y: auto;
+        }
+
+        .reservation-marker {
+            margin: 2px;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            color: #333;
+            cursor: pointer;
+            position: relative;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-name {
+            font-weight: normal;
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .reservation-marker:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: pre-line;
+            z-index: 1000;
+            text-align: left;
+            min-width: 150px;
+        }
+
+        .room-name {
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        /* Room Legend Styles */
+        .room-legend {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        .room-legend h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-right: 15px;
+            margin-bottom: 5px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            margin-right: 5px;
+        }
+
+        .legend-item span {
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .calendar td {
+                height: 100px;
+                padding: 4px;
+            }
+
+            .date-number {
+                font-size: 1em;
+                top: 4px;
+                left: 4px;
+            }
+
+            .reservations {
+                margin-top: 28px;
+                font-size: 0.9em;
+            }
+
+            .room-legend {
+                padding: 12px;
+                gap: 8px;
+            }
+
+            .legend-item {
+                padding: 2px 6px;
+                font-size: 0.9em;
+            }
+        }
+
+        .reservation-list {
+            margin-top: 20px;
+        }
+
+        .reservation-item {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .reservation-details {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .reservation-room {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .reservation-dates {
+            color: #666;
+        }
+
+        .reservation-guest {
+            color: #444;
+        }
+
+        .reservation-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-button {
+            padding: 8px 15px;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            font-size: 0.9em;
+            transition: background-color 0.2s;
+        }
+
+        .nav-button:hover {
+            background-color: #0056b3;
+        }
+
+        @media (max-width: 768px) {
+            .reservation-item {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .reservation-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -14,7 +282,6 @@
         <nav>
             <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Accueil</a>
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('make_reservation') }}" {% if request.endpoint == 'make_reservation' %}class="active"{% endif %}>Réserver</a>
                 <a href="{{ url_for('calendar') }}" {% if request.endpoint == 'calendar' %}class="active"{% endif %}>Calendrier</a>
                 <a href="{{ url_for('my_reservations') }}" {% if request.endpoint == 'my_reservations' %}class="active"{% endif %}>Mes Réservations</a>
                 {% if current_user.is_admin %}
@@ -34,102 +301,79 @@
         <section class="calendar-section">
             <div class="calendar-controls">
                 <div class="month-navigation">
-                    <a href="{{ url_for('calendar', year=prev_month.year, month=prev_month.month) }}" class="nav-button">
-                        <i class="fas fa-chevron-left"></i> Mois précédent
+                    <a href="{{ url_for('calendar', year=prev_year, month=prev_month) }}" class="nav-button">
+                        <i class="fas fa-chevron-left"></i> {{ prev_month_name }} {{ prev_year }}
                     </a>
-                    <h2>{{ current_month_name }} {{ year }}</h2>
-                    <a href="{{ url_for('calendar', year=next_month.year, month=next_month.month) }}" class="nav-button">
-                        Mois suivant <i class="fas fa-chevron-right"></i>
+                    <h2>{{ current_month_name }} {{ current_year }}</h2>
+                    <a href="{{ url_for('calendar', year=next_year, month=next_month) }}" class="nav-button">
+                        {{ next_month_name }} {{ next_year }} <i class="fas fa-chevron-right"></i>
                     </a>
                 </div>
                 <div class="view-toggle">
-                    <button class="view-button active" onclick="toggleView('calendar')">
-                        <i class="fas fa-calendar-alt"></i> Calendrier
+                    <button id="calendar-view-btn" class="view-button active" data-view="calendar">
+                        <i class="fas fa-calendar-alt"></i> Vue Calendrier
                     </button>
-                    <button class="view-button" onclick="toggleView('list')">
-                        <i class="fas fa-list"></i> Liste
+                    <button id="list-view-btn" class="view-button" data-view="list">
+                        <i class="fas fa-list"></i> Vue Liste
                     </button>
                 </div>
             </div>
 
-            <div id="calendar-view" class="view-content active">
-                <div class="calendar">
+            <div class="calendar-view">
+                <div class="calendar-container">
                     {{ calendar_html|safe }}
                 </div>
-            </div>
-
-            <div id="list-view" class="view-content">
-                <div class="reservations-list">
-                    <div class="reservation-filters">
-                        <h3>Réservations à venir</h3>
-                    </div>
-                    {% set sorted_reservations = reservations|sort(attribute='days_until') %}
-                    {% for reservation in sorted_reservations %}
-                        <div class="reservation-item {% if reservation.status == 'en-cours' %}current{% endif %}" style="border-left-color: {{ reservation.room_color }};">
-                            <div class="reservation-header">
-                                <div class="reservation-room" style="color: {{ reservation.room_color }};">{{ reservation.room_name }}</div>
-                                <div class="reservation-status">
-                                    {% if reservation.status == 'en-cours' %}
-                                        <span class="status-badge current">En cours</span>
-                                    {% else %}
-                                        <span class="status-badge upcoming">
-                                            {% if reservation.days_until == 0 %}
-                                                Aujourd'hui
-                                            {% elif reservation.days_until == 1 %}
-                                                Demain
-                                            {% else %}
-                                                Dans {{ reservation.days_until }} jours
-                                            {% endif %}
-                                        </span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <div class="reservation-dates">
-                                <span class="date-range">
-                                    {{ reservation.start_date_display }} - {{ reservation.end_date_display }}
+                
+                <div class="reservation-list" style="display: none;">
+                    {% for reservation in reservations %}
+                        <div class="reservation-item" style="border-left: 4px solid {{ get_room_color(reservation.room.name) }}">
+                            <div class="reservation-details">
+                                <span class="reservation-room">{{ reservation.room.name }}</span>
+                                <span class="reservation-guest">{{ reservation.user.name }}</span>
+                                <span class="reservation-dates">
+                                    Du {{ reservation.start_date.strftime('%d/%m/%Y') }} au {{ reservation.end_date.strftime('%d/%m/%Y') }}
                                 </span>
                             </div>
-                            <div class="reservation-details">
-                                <span class="reserver">{{ reservation.user.name }}</span>
-                            </div>
+                            {% if current_user.is_admin or reservation.user_id == current_user.id %}
+                                <div class="reservation-actions">
+                                    <a href="{{ url_for('edit_reservation', reservation_id=reservation.id) }}" class="nav-button">
+                                        <i class="fas fa-edit"></i> Modifier
+                                    </a>
+                                </div>
+                            {% endif %}
                         </div>
-                    {% else %}
-                        <p class="no-reservations">Aucune réservation à venir</p>
                     {% endfor %}
                 </div>
             </div>
         </section>
     </main>
 
+    <footer>
+        <p>&copy; {{ current_year }} Famille Bourrut - Noirmoutier</p>
+    </footer>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Restore user's preference on page load
-            const savedView = localStorage.getItem('calendarViewPreference');
-            if (savedView) {
-                toggleView(savedView);
-            }
+            const calendarViewBtn = document.getElementById('calendar-view-btn');
+            const listViewBtn = document.getElementById('list-view-btn');
+            const calendarView = document.querySelector('.calendar-view');
+            const reservationList = document.querySelector('.reservation-list');
+            const calendarContainer = document.querySelector('.calendar-container');
+
+            calendarViewBtn.addEventListener('click', function() {
+                calendarViewBtn.classList.add('active');
+                listViewBtn.classList.remove('active');
+                calendarContainer.style.display = 'block';
+                reservationList.style.display = 'none';
+            });
+
+            listViewBtn.addEventListener('click', function() {
+                listViewBtn.classList.add('active');
+                calendarViewBtn.classList.remove('active');
+                calendarContainer.style.display = 'none';
+                reservationList.style.display = 'block';
+            });
         });
-
-        function toggleView(viewType) {
-            const calendarView = document.getElementById('calendar-view');
-            const listView = document.getElementById('list-view');
-            const buttons = document.querySelectorAll('.view-button');
-            
-            buttons.forEach(button => button.classList.remove('active'));
-            
-            if (viewType === 'calendar') {
-                calendarView.classList.add('active');
-                listView.classList.remove('active');
-                buttons[0].classList.add('active');
-            } else {
-                listView.classList.add('active');
-                calendarView.classList.remove('active');
-                buttons[1].classList.add('active');
-            }
-
-            // Save preference
-            localStorage.setItem('calendarViewPreference', viewType);
-        }
     </script>
 </body>
 </html>

@@ -6,6 +6,7 @@
     <title>Accueil - Maison Bourrut</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -35,7 +36,7 @@
         }
 
         header {
-            background-color: white;
+            background-color: var(--primary-color);
             padding: 1rem 2rem;
             box-shadow: var(--card-shadow);
             position: sticky;
@@ -45,7 +46,7 @@
 
         h1 {
             font-family: 'Playfair Display', serif;
-            color: var(--primary-color);
+            color: white;
             font-size: 2.5rem;
             margin-bottom: 0.5rem;
         }
@@ -59,7 +60,7 @@
 
         nav a {
             text-decoration: none;
-            color: var(--primary-color);
+            color: white;
             padding: 0.5rem 1rem;
             border-radius: 4px;
             transition: all 0.3s ease;
@@ -76,125 +77,14 @@
             padding: 0 1rem;
         }
 
-        .welcome-message {
-            text-align: center;
-            margin: 2rem 0;
+        .content-section {
             padding: 2rem;
-            background: white;
+            background-color: white;
             border-radius: 8px;
             box-shadow: var(--card-shadow);
         }
 
-        .alert {
-            padding: 1rem;
-            margin: 1rem 0;
-            border-radius: 4px;
-            text-align: center;
-        }
-
-        .alert.success {
-            background-color: #d4edda;
-            color: var(--success-color);
-        }
-
-        .alert.error {
-            background-color: #f8d7da;
-            color: var(--error-color);
-        }
-
-        .rooms-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 2rem;
-        }
-
-        .room-card {
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            text-decoration: none;
-            color: inherit;
-            border: 1px solid var(--light-blue);
-        }
-
-        .room-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border-color: var(--accent-color);
-        }
-
-        .room-content {
-            padding: 1.5rem;
-        }
-
-        .room-title {
-            color: var(--primary-color);
-            font-family: 'Playfair Display', serif;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .capacity-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            background-color: var(--accent-color);
-            color: white;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            margin-bottom: 1rem;
-        }
-
-        .room-description {
-            color: var(--text-color);
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-
-        .reservation-list {
-            margin-top: 1.5rem;
-            border-top: 1px solid #eee;
-            padding-top: 1rem;
-        }
-
-        .reservation-list h3 {
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-
-        .reservation-item {
-            padding: 0.75rem;
-            margin: 0.5rem 0;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-left: 3px solid transparent;
-        }
-
-        .reservation-item.en-cours {
-            background-color: var(--light-blue);
-            color: var(--deep-blue);
-            border-left-color: var(--deep-blue);
-        }
-
-        .reservation-item.à-venir {
-            background-color: var(--light-blue);
-            color: var(--secondary-color);
-            border-left-color: var(--accent-color);
-        }
-
-        .user-info {
-            font-size: 0.8rem;
-            opacity: 0.8;
-        }
-
-        .hero-section {
+        .welcome-image {
             position: relative;
             height: 70vh;
             min-height: 500px;
@@ -203,17 +93,13 @@
             max-width: 100%;
         }
 
-        .hero-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(rgba(13, 71, 161, 0.3), rgba(26, 35, 126, 0.7));
-            z-index: 2;
+        .welcome-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
-        .hero-content {
+        .welcome-text {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -223,75 +109,281 @@
             z-index: 3;
             width: 90%;
             max-width: 800px;
+            background-color: rgba(0, 0, 0, 0.4);
+            padding: 2rem;
+            border-radius: 1rem;
         }
 
-        .hero-content h1 {
+        .welcome-text h2 {
             font-size: 3.5rem;
             margin-bottom: 1rem;
             font-family: 'Playfair Display', serif;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
+            font-weight: 600;
         }
 
-        .hero-content p {
-            font-size: 1.2rem;
+        .welcome-text p {
+            font-size: 1.4rem;
             margin-bottom: 2rem;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.8);
+            font-weight: 500;
         }
 
-        .upcoming-reservations {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            margin: 2rem 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border: 1px solid var(--light-blue);
-        }
-
-        .reservation-preview {
+        .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 1rem;
+            margin-top: 1rem;
         }
 
-        .reservation-preview-card {
-            background: var(--background-color);
-            padding: 1.5rem;
+        .card {
+            background: white;
             border-radius: 8px;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
             text-decoration: none;
             color: inherit;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             border: 1px solid var(--light-blue);
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 320px;
         }
 
-        .reservation-preview-card:hover {
+        .card:hover {
             transform: translateY(-3px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
             border-color: var(--accent-color);
         }
 
-        .reservation-date {
+        .card-image {
+            width: 100%;
+            height: 180px;
+            overflow: hidden;
+            border-radius: 8px 8px 0 0;
+            flex-shrink: 0;
+        }
+
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .card-content {
+            padding: 1.5rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-content h3 {
+            margin: 0 0 1rem 0;
+            color: #333;
+        }
+
+        .next-reservation {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .next-reservation-date {
+            color: #333;
+            font-weight: 500;
+            margin-top: 0.25rem;
+        }
+
+        .no-reservation {
+            color: #888;
+            font-style: italic;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .date {
             color: var(--accent-color);
             font-weight: 600;
             margin: 0.25rem 0;
         }
 
+        .status {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .status.en-cours {
+            background-color: var(--light-blue);
+            color: var(--deep-blue);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .status.à-venir {
+            background-color: var(--light-blue);
+            color: var(--secondary-color);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .room-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+            transition: transform 0.2s;
+            position: relative;
+        }
+
+        .room-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background-color: var(--room-color);
+        }
+
+        .capacity-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            color: #333;
+            background-color: var(--room-color);
+            margin-bottom: 10px;
+        }
+
+        .room-info {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .room-info h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .room-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+
+        .room-image {
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+        }
+
+        .room-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .upcoming-reservations {
+            margin-top: 2rem;
+        }
+
+        .upcoming-reservations h3 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .reservation-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .reservation-item {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            border-left: 4px solid var(--room-color);
+            height: 100%;
+        }
+
+        .reservation-info {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .reservation-info h4 {
+            margin: 0;
+            color: #333;
+            font-size: 1.1em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .reservation-user {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: normal;
+        }
+
+        .reservation-date {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 1rem;
+            flex-grow: 1;
+        }
+
+        .reservation-guest {
+            padding: 0.5rem 1rem;
+            background-color: var(--room-color);
+            color: #333;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 0.9em;
+            text-align: center;
+            width: fit-content;
+            align-self: flex-end;
+        }
+
         @media (max-width: 768px) {
-            .hero-content h1 {
+            .welcome-text h2 {
                 font-size: 2rem;
             }
             
-            .hero-content p {
+            .welcome-text p {
                 font-size: 1rem;
             }
 
-            .rooms-grid {
+            .card-grid {
                 grid-template-columns: 1fr;
             }
 
-            .reservation-preview {
-                grid-template-columns: 1fr;
+            .reservation-info h4 {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .reservation-guest {
+                align-self: flex-start;
             }
         }
     </style>
@@ -300,62 +392,109 @@
     <header>
         <h1>Maison Bourrut à Noirmoutier</h1>
         <nav>
-            <a href="{{ url_for('home') }}" class="active">Accueil</a>
+            <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Accueil</a>
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('reservations') }}">Mes réservations</a>
+                <a href="{{ url_for('make_reservation') }}" {% if request.endpoint == 'make_reservation' %}class="active"{% endif %}>Réserver</a>
+                <a href="{{ url_for('calendar') }}" {% if request.endpoint == 'calendar' %}class="active"{% endif %}>Calendrier</a>
+                <a href="{{ url_for('my_reservations') }}" {% if request.endpoint == 'my_reservations' %}class="active"{% endif %}>Mes Réservations</a>
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('manage_rooms') }}" {% if request.endpoint == 'manage_rooms' %}class="active"{% endif %}>Gérer les chambres</a>
+                    <a href="{{ url_for('manage_users') }}" {% if request.endpoint == 'manage_users' %}class="active"{% endif %}>Gérer les utilisateurs</a>
+                {% endif %}
+                <a href="{{ url_for('profile') }}" {% if request.endpoint == 'profile' %}class="active"{% endif %}>Mon Profil</a>
                 <a href="{{ url_for('logout') }}">Déconnexion</a>
             {% else %}
-                <a href="{{ url_for('login') }}">Connexion</a>
+                <a href="{{ url_for('login') }}" {% if request.endpoint == 'login' %}class="active"{% endif %}>Connexion</a>
+                <a href="{{ url_for('register') }}" {% if request.endpoint == 'register' %}class="active"{% endif %}>Inscription</a>
             {% endif %}
         </nav>
     </header>
 
     <main>
-        <div class="hero-section">
-            <img src="{{ url_for('static', filename='images/noirmoutier-aerial.png') }}" alt="Vue aérienne de Noirmoutier" class="hero-image">
-            <div class="hero-overlay"></div>
-            <div class="hero-content">
-                <h1>Bienvenue à la Maison Bourrut</h1>
-                <p>Découvrez notre charmante maison familiale à Noirmoutier</p>
-            </div>
-        </div>
+        <section class="content-section">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
 
-        {% if current_user.is_authenticated %}
-            <section class="upcoming-reservations">
-                <h2>Vos prochaines réservations</h2>
-                <div class="reservation-preview">
-                    {% for reservation in next_reservations %}
-                        <a href="{{ url_for('edit_reservation', id=reservation.id) }}" class="reservation-preview-card">
-                            <h3>{{ reservation.room.name }}</h3>
-                            <p class="reservation-date">{{ reservation.start_date.strftime('%d/%m/%Y') }} - {{ reservation.end_date.strftime('%d/%m/%Y') }}</p>
-                            <p>{{ reservation.number_of_people }} personnes</p>
-                            <div class="reservation-status {{ reservation.status }}">{{ reservation.status }}</div>
-                        </a>
-                    {% else %}
-                        <p>Aucune réservation à venir</p>
+            <div class="welcome-image">
+                <img src="{{ url_for('static', filename='images/noirmoutier-aerial.png') }}" alt="Vue aérienne de Noirmoutier">
+                <div class="welcome-text">
+                    <h2>Bienvenue à la Maison Bourrut</h2>
+                    <p>Découvrez notre charmante maison familiale à Noirmoutier</p>
+                </div>
+            </div>
+
+            {% if current_user.is_authenticated %}
+                <div class="upcoming-reservations">
+                    <h3>Les prochaines réservations</h3>
+                    <div class="reservation-list">
+                        {% for reservation in next_reservations %}
+                            <div class="reservation-item" style="--room-color: {{ get_room_color(reservation.room.name) }}">
+                                <div class="reservation-info">
+                                    <h4>
+                                        {{ reservation.room.name }}
+                                        <span class="reservation-user">{{ reservation.user.name }}</span>
+                                    </h4>
+                                    <div class="reservation-date">
+                                        Du {{ reservation.start_date.strftime('%d/%m/%Y') }} au {{ reservation.end_date.strftime('%d/%m/%Y') }}
+                                    </div>
+                                    <div class="reservation-guest">
+                                        {{ reservation.number_of_guests }} personne{{ 's' if reservation.number_of_guests > 1 else '' }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <p>Aucune réservation à venir</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="section-content">
+                <h2>Les Chambres</h2>
+                <div class="card-grid">
+                    {% for room in rooms %}
+                        <div class="card">
+                            <div class="card-image">
+                                {% if room.image %}
+                                    <img src="{{ url_for('static', filename='images/rooms/' + room.image) }}" alt="{{ room.name }}">
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='images/default-room.jpg') }}" alt="Default room image">
+                                {% endif %}
+                            </div>
+                            <div class="card-content">
+                                <h3>{{ room.name }}</h3>
+                                <p>{{ room.description }}</p>
+                                <p>Capacité: {{ room.capacity }} personnes</p>
+                                
+                                <div class="next-reservation">
+                                    <div>Prochaine réservation:</div>
+                                    {% if next_reservations[room.id] %}
+                                        {% set reservation = next_reservations[room.id] %}
+                                        <div class="next-reservation-date">
+                                            Du {{ reservation.start_date.strftime('%d/%m/%Y') }} au {{ reservation.end_date.strftime('%d/%m/%Y') }}
+                                            {% if current_user.is_admin %}
+                                                <br>par {{ reservation.user.name }}
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <div class="no-reservation">Aucune réservation prévue</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
                     {% endfor %}
                 </div>
-            </section>
-        {% endif %}
-
-        <section class="rooms">
-            <h2>Nos Chambres</h2>
-            <div class="rooms-grid">
-                {% for room in rooms %}
-                    <a href="{{ url_for('make_reservation', room_id=room.id) }}" class="room-card">
-                        <div class="room-content">
-                            <h3>{{ room.name }}</h3>
-                            <span class="capacity-badge">{{ room.capacity }} personnes</span>
-                            <p>{{ room.description }}</p>
-                        </div>
-                    </a>
-                {% endfor %}
             </div>
         </section>
     </main>
 
     <footer>
-        <p>&copy; {{ now.year }} Famille Bourrut - Noirmoutier</p>
+        <p>&copy; {{ current_year }} Famille Bourrut - Noirmoutier</p>
     </footer>
 </body>
 </html>

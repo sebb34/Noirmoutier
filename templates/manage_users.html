@@ -93,6 +93,20 @@
         .d-inline {
             display: inline-block;
         }
+        .action-column {
+            text-align: center;
+            min-width: 100px;
+        }
+        .action-column form {
+            margin: 0;
+        }
+        .action-column button {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        .action-column button:last-child {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
@@ -136,7 +150,9 @@
                             <th>Email</th>
                             <th>Statut</th>
                             <th>Admin</th>
-                            <th>Actions</th>
+                            <th class="action-column">Approuver/Rejeter</th>
+                            <th class="action-column">Admin</th>
+                            <th class="action-column">Supprimer</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -152,29 +168,35 @@
                                 {% endif %}
                             </td>
                             <td>{{ "Oui" if user.is_admin else "Non" }}</td>
-                            <td>
+                            <td class="action-column">
                                 {% if not user.is_admin or current_user.id != user.id %}
                                     {% if not user.is_approved %}
-                                    <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post" style="display: inline;">
+                                    <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post">
                                         <button type="submit" class="btn btn-success">Approuver</button>
                                     </form>
-                                    <form action="{{ url_for('reject_user', user_id=user.id) }}" method="post" style="display: inline;">
+                                    <form action="{{ url_for('reject_user', user_id=user.id) }}" method="post">
                                         <button type="submit" class="btn btn-danger" onclick="return confirm('Êtes-vous sûr de vouloir rejeter cet utilisateur ?')">
                                             Rejeter
                                         </button>
                                     </form>
-                                    {% else %}
-                                    <form action="{{ url_for('toggle_admin', user_id=user.id) }}" method="POST" style="display: inline;">
-                                        <button type="submit" class="btn btn-warning btn-sm">
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td class="action-column">
+                                {% if not user.is_admin or current_user.id != user.id %}
+                                    {% if user.is_approved %}
+                                    <form action="{{ url_for('toggle_admin', user_id=user.id) }}" method="POST">
+                                        <button type="submit" class="btn btn-warning">
                                             {% if user.is_admin %}Retirer admin{% else %}Rendre admin{% endif %}
                                         </button>
                                     </form>
-                                    <form action="{{ url_for('toggle_parent', user_id=user.id) }}" method="POST" style="display: inline;">
-                                        <button type="submit" class="btn btn-info btn-sm">
-                                            {% if user.is_parent %}Retirer parent{% else %}Rendre parent{% endif %}
-                                        </button>
-                                    </form>
-                                    <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" class="d-inline">
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td class="action-column">
+                                {% if not user.is_admin or current_user.id != user.id %}
+                                    {% if user.is_approved %}
+                                    <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST">
                                         <button type="submit" class="btn btn-danger" onclick="return confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')">
                                             Supprimer
                                         </button>
@@ -191,7 +213,7 @@
     </main>
 
     <footer>
-        <p>&copy; {{ now.year }} Famille Bourrut - Noirmoutier</p>
+        <p>&copy; {{ current_year }} Famille Bourrut - Noirmoutier</p>
     </footer>
 </body>
 </html>

@@ -5,6 +5,159 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gérer les chambres - Maison Bourrut</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .rooms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .room-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border-left: 4px solid var(--room-color);
+        }
+
+        .image-container {
+            height: 200px;
+            overflow: hidden;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .content {
+            padding: 1.5rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .room-description {
+            margin: 0.5rem 0;
+            color: #666;
+            flex-grow: 1;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .room-capacity {
+            color: var(--primary-color);
+            font-weight: 500;
+            margin: 0.25rem 0;
+        }
+
+        .room-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .room-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .edit-btn {
+            background-color: var(--room-color);
+            color: #333;
+            opacity: 0.9;
+        }
+
+        .edit-btn:hover {
+            opacity: 1;
+            transform: translateY(-2px);
+        }
+
+        .delete-btn {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background-color: #d32f2f;
+            transform: translateY(-2px);
+        }
+
+        .add-room-form {
+            background: white;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 10px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: var(--error-color);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .button-group button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .button.danger {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        .button.danger:hover {
+            background-color: #d32f2f;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -29,8 +182,9 @@
     </header>
 
     <main>
-        <section class="rooms-management">
-            <h2>Gestion des chambres</h2>
+        <section class="content-section">
+            <h2>Gérer les chambres</h2>
+            
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -41,7 +195,7 @@
 
             <div class="add-room-form">
                 <h3>Ajouter une nouvelle chambre</h3>
-                <form method="POST" action="{{ url_for('add_room') }}" enctype="multipart/form-data">
+                <form action="{{ url_for('add_room') }}" method="POST" enctype="multipart/form-data">
                     <div class="form-group">
                         <label for="name">Nom de la chambre:</label>
                         <input type="text" id="name" name="name" required>
@@ -55,9 +209,8 @@
                         <textarea id="description" name="description" rows="3"></textarea>
                     </div>
                     <div class="form-group">
-                        <label for="image">Photo de la chambre:</label>
+                        <label for="image">Photo:</label>
                         <input type="file" id="image" name="image" accept="image/*">
-                        <small>Format recommandé: JPG ou PNG, max 2MB</small>
                     </div>
                     <button type="submit" class="button">Ajouter la chambre</button>
                 </form>
@@ -65,23 +218,23 @@
 
             <div class="rooms-grid">
                 {% for room in rooms %}
-                    <div class="room-card">
+                    <div class="room-card" style="--room-color: {{ get_room_color(room.name) }}">
                         <div class="image-container">
                             {% if room.image %}
-                                <img src="{{ url_for('static', filename=room.image) }}" alt="Photo de {{ room.name }}">
+                                <img src="{{ url_for('static', filename='images/rooms/' + room.image) }}" alt="Photo de {{ room.name }}">
                             {% else %}
-                                <img src="{{ url_for('static', filename='images/rooms/default-room.jpg') }}" alt="Photo par défaut">
+                                <img src="{{ url_for('static', filename='images/room-placeholder.jpg') }}" alt="Photo par défaut">
                             {% endif %}
                         </div>
                         <div class="content">
                             <h4>{{ room.name }}</h4>
                             <p class="room-capacity">{{ room.capacity }} personnes</p>
                             {% if room.description %}
-                                <p class="room-description">{{ room.description }}</p>
+                                <p class="room-description">{{ room.description[:100] + '...' if room.description|length > 100 else room.description }}</p>
                             {% endif %}
                             <div class="room-actions">
-                                <button onclick="editRoom('{{ room.id }}')" class="edit-btn">Modifier</button>
-                                <button onclick="deleteRoom('{{ room.id }}')" class="delete-btn">Supprimer</button>
+                                <button class="edit-btn" onclick="editRoom({{ room.id }})">Modifier</button>
+                                <button class="delete-btn" onclick="deleteRoom({{ room.id }})">Supprimer</button>
                             </div>
                         </div>
                     </div>
@@ -90,6 +243,7 @@
         </section>
     </main>
 
+    <!-- Edit Room Modal -->
     <div id="editRoomModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -111,52 +265,32 @@
                     <label for="edit-image">Nouvelle photo (optionnel):</label>
                     <input type="file" id="edit-image" name="image" accept="image/*">
                 </div>
-                <button type="submit" class="button">Enregistrer les modifications</button>
+                <button type="submit" class="button">Sauvegarder</button>
             </form>
         </div>
     </div>
 
+    <!-- Delete Room Modal -->
     <div id="deleteRoomModal" class="modal">
         <div class="modal-content">
-            <span class="close">&times;</span>
+            <span class="close" onclick="closeDeleteModal()">&times;</span>
             <h3>Confirmer la suppression</h3>
             <p>Êtes-vous sûr de vouloir supprimer cette chambre ?</p>
-            <form id="deleteRoomForm" method="POST">
-                <button type="submit" class="button delete-btn">Supprimer</button>
-                <button type="button" class="button" onclick="closeDeleteModal()">Annuler</button>
-            </form>
+            <div class="button-group">
+                <button onclick="confirmDelete()" class="button danger">Supprimer</button>
+                <button onclick="closeDeleteModal()" class="button">Annuler</button>
+            </div>
         </div>
     </div>
-
-    <footer>
-        <p>&copy; {{ now.year }} Famille Bourrut - Noirmoutier</p>
-    </footer>
 
     <script>
         const editModal = document.getElementById('editRoomModal');
         const deleteModal = document.getElementById('deleteRoomModal');
         const editForm = document.getElementById('editRoomForm');
-        const deleteForm = document.getElementById('deleteRoomForm');
-
-        // Close button functionality
-        document.querySelectorAll('.close').forEach(closeBtn => {
-            closeBtn.onclick = function() {
-                editModal.style.display = "none";
-                deleteModal.style.display = "none";
-            }
-        });
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            if (event.target == editModal) {
-                editModal.style.display = "none";
-            }
-            if (event.target == deleteModal) {
-                deleteModal.style.display = "none";
-            }
-        }
+        let currentRoomId = null;
 
         function editRoom(roomId) {
+            console.log('Editing room:', roomId);
             fetch(`/get_room/${roomId}`)
                 .then(response => response.json())
                 .then(room => {
@@ -174,13 +308,46 @@
         }
 
         function deleteRoom(roomId) {
-            deleteForm.action = `/delete_room/${roomId}`;
+            console.log('Deleting room:', roomId);
+            currentRoomId = roomId;
             deleteModal.style.display = "block";
         }
 
+        function confirmDelete() {
+            console.log('Confirming delete for room:', currentRoomId);
+            if (currentRoomId) {
+                window.location.href = `/delete_room/${currentRoomId}`;
+            }
+            closeDeleteModal();
+        }
+
         function closeDeleteModal() {
+            console.log('Closing delete modal');
             deleteModal.style.display = "none";
+            currentRoomId = null;
+        }
+
+        // Close button functionality
+        document.querySelectorAll('.close').forEach(closeBtn => {
+            closeBtn.onclick = function() {
+                console.log('Closing modal via X button');
+                editModal.style.display = "none";
+                deleteModal.style.display = "none";
+            }
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target == editModal || event.target == deleteModal) {
+                console.log('Closing modal via outside click');
+                editModal.style.display = "none";
+                deleteModal.style.display = "none";
+            }
         }
     </script>
+
+    <footer>
+        <p>&copy; {{ current_year }} Famille Bourrut - Noirmoutier</p>
+    </footer>
 </body>
 </html>

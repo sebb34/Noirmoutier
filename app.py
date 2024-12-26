@@ -2,14 +2,15 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime, timedelta
+import calendar as cal
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from werkzeug.utils import secure_filename
 from functools import wraps
-import calendar as cal
 import secrets
 from flask_mail import Mail, Message
 import logging
+import locale
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -34,88 +35,57 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'Veuillez vous connecter pour accéder à cette page.'
 mail = Mail(app)
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def handle_room_image(image_file, old_image=None):
-    if not image_file:
-        return old_image
-    
-    if image_file and allowed_file(image_file.filename):
-        # Delete old image if it exists
-        if old_image:
-            old_image_path = os.path.join(app.root_path, 'static', old_image)
-            if os.path.exists(old_image_path):
-                try:
-                    os.remove(old_image_path)
-                except PermissionError:
-                    flash('Erreur lors de la suppression de l\'ancienne image', 'error')
-                    return old_image
-        
-        # Save new image
-        _, ext = os.path.splitext(secure_filename(image_file.filename))
-        room_name = request.form.get('name', '').lower()
-        room_name = ''.join(c if c.isalnum() else '_' for c in room_name)
-        # Add random string to prevent caching
-        random_string = secrets.token_hex(4)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{room_name}_{timestamp}_{random_string}{ext}"
-        
-        upload_folder = os.path.join(app.root_path, 'static', 'images', 'rooms')
-        os.makedirs(upload_folder, exist_ok=True)
-        
-        try:
-            # Ensure write permissions
-            os.chmod(upload_folder, 0o755)
-            
-            full_path = os.path.join(upload_folder, filename)
-            image_file.save(full_path)
-            os.chmod(full_path, 0o644)  # Set read permissions for the file
-            
-            return os.path.join('images', 'rooms', filename)
-        except (OSError, PermissionError) as e:
-            flash(f'Erreur lors de la sauvegarde de l\'image: {str(e)}', 'error')
-            return old_image
-            
-    return old_image
-
-# Define available rooms
-ROOMS = {
-    'rue': {
-        'name': 'Chambre sur la rue',
-        'capacity': 2,
-        'description': 'Chambre double avec vue sur la rue, lit double 140cm',
-        'image': 'images/rooms/rue.jpg'
-    },
-    'jardin': {
-        'name': 'Chambre côté jardin',
-        'capacity': 3,
-        'description': 'Chambre triple avec vue sur le jardin, un lit double 140cm et un lit simple 90cm',
-        'image': 'images/rooms/jardin.jpg'
-    },
-    'parents': {
-        'name': 'Chambre des parents',
-        'capacity': 2,
-        'description': 'Chambre principale avec salle de bain privée, lit double 160cm',
-        'image': 'images/rooms/parents.jpg'
-    },
-    'enfants': {
-        'name': 'Chambre des enfants',
-        'capacity': 4,
-        'description': 'Grande chambre avec quatre lits simples 90cm',
-        'image': 'images/rooms/enfants.jpg'
-    },
-    'garage': {
-        'name': 'Chambre du garage',
-        'capacity': 2,
-        'description': 'Chambre calme côté garage, deux lits simples 90cm',
-        'image': 'images/rooms/garage.jpg'
-    }
+# Room colors mapping - using pastel colors
+ROOM_COLORS = {
+    'Chambre sur la rue': '#FFB5B5',       # Pastel Red
+    'Chambre du garage': '#B5D8FF',        # Pastel Blue
+    'Petit salon': '#E2B5FF',              # Pastel Purple
+    'Chambre des parents': '#B5E2B5',      # Pastel Green
+    'Dortoir des enfants': '#FFE2B5',      # Pastel Orange
 }
 
-# Fonctions importantes
+def get_room_color(room_name):
+    """Get color for a room, with fallback to default color"""
+    return ROOM_COLORS.get(room_name, '#CCCCCC')
+
+def handle_room_image(image_file, room_name, old_image=None):
+    """Handle room image upload with room name-based filenames."""
+    if image_file and allowed_file(image_file.filename):
+        try:
+            # Get file extension
+            _, ext = os.path.splitext(image_file.filename)
+            
+            # Create a filename using room name: room_name.ext
+            # Clean the room name (remove special characters, spaces to underscores, lowercase)
+            clean_name = "".join(c.lower() if c.isalnum() else "_" for c in room_name)
+            clean_name = clean_name.replace(" ", "_")
+            filename = f'room_{clean_name}{ext.lower()}'
+            
+            # Create rooms directory if it doesn't exist
+            upload_folder = os.path.join(app.root_path, 'static', 'images', 'rooms')
+            os.makedirs(upload_folder, exist_ok=True)
+            
+            # Delete old image if it exists
+            if old_image:
+                old_image_path = os.path.join(upload_folder, old_image)
+                if os.path.exists(old_image_path):
+                    os.remove(old_image_path)
+            
+            # Save the new image
+            image_path = os.path.join(upload_folder, filename)
+            image_file.save(image_path)
+            
+            return filename
+        except Exception as e:
+            app.logger.error(f"Error handling room image: {str(e)}")
+            return None
+    return None
+
+def allowed_file(filename):
+    """Check if the file extension is allowed."""
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -183,10 +153,16 @@ class Reservation(db.Model):
     room = db.relationship('Room', backref=db.backref('reservations', lazy=True))
     user = db.relationship('User', backref=db.backref('reservations', lazy=True))
 
+@app.template_filter('current_year')
+def current_year_filter(text):
+    return datetime.now().year
+
 @app.context_processor
 def utility_processor():
+    """Make utility functions available to all templates"""
     return {
-        'now': datetime.now()
+        'current_year': datetime.now().year,
+        'get_room_color': get_room_color
     }
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -195,19 +171,25 @@ def login():
         return redirect(url_for('home'))
     
     if request.method == 'POST':
-        user = User.query.filter_by(email=request.form.get('email')).first()
-        if user and user.check_password(request.form.get('password')):
+        email = request.form.get('email')
+        password = request.form.get('password')
+        user = User.query.filter_by(email=email).first()
+        
+        if user and user.check_password(password):
             if not user.is_approved:
-                flash('Votre compte n\'a pas encore été approuvé par un administrateur.', 'error')
+                flash('Votre compte n\'a pas encore été approuvé.', 'error')
                 return redirect(url_for('login'))
+            
             login_user(user)
             next_page = request.args.get('next')
-            if next_page and next_page.startswith('/'):
+            if next_page:
                 return redirect(next_page)
             return redirect(url_for('home'))
-        flash('Email ou mot de passe incorrect.', 'error')
+        else:
+            flash('Email ou mot de passe incorrect.', 'error')
     
-    return render_template('login.html')
+    current_year = datetime.now().year
+    return render_template('login.html', current_year=current_year)
 
 @app.route('/logout')
 @login_required
@@ -570,12 +552,21 @@ def add_room():
         flash('Le nom et la capacité sont requis.', 'error')
         return redirect(url_for('manage_rooms'))
     
-    image_path = handle_room_image(image_file) if image_file else None
-    room = Room(name=name, capacity=int(capacity), description=description, image=image_path)
-    db.session.add(room)
-    db.session.commit()
+    try:
+        # Handle image upload first
+        image_path = handle_room_image(image_file, name) if image_file else None
+        
+        # Create new room
+        room = Room(name=name, capacity=int(capacity), description=description, image=image_path)
+        db.session.add(room)
+        db.session.commit()
+        
+        flash('Chambre ajoutée avec succès!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Une erreur est survenue lors de l\'ajout de la chambre.', 'error')
+        app.logger.error(f'Error adding room: {str(e)}')
     
-    flash('Chambre ajoutée avec succès!', 'success')
     return redirect(url_for('manage_rooms'))
 
 @app.route('/get_room/<int:room_id>')
@@ -595,35 +586,47 @@ def get_room(room_id):
 @admin_required
 def edit_room(room_id):
     room = Room.query.get_or_404(room_id)
-    room.name = request.form.get('name')
-    room.capacity = int(request.form.get('capacity'))
-    room.description = request.form.get('description')
-
-    if 'image' in request.files:
-        image_file = request.files['image']
-        if image_file and image_file.filename:
+    
+    name = request.form.get('name')
+    capacity = request.form.get('capacity')
+    description = request.form.get('description')
+    image_file = request.files.get('image')
+    
+    if not name or not capacity:
+        flash('Le nom et la capacité sont requis.', 'error')
+        return redirect(url_for('manage_rooms'))
+    
+    try:
+        room.name = name
+        room.capacity = int(capacity)
+        room.description = description
+        
+        # Handle image upload if new image is provided
+        if image_file:
             if allowed_file(image_file.filename):
                 # Delete old image if it exists
                 if room.image:
-                    old_image_path = os.path.join(app.root_path, 'static', 'images', room.image)
+                    old_image_path = os.path.join(app.root_path, 'static', 'images', 'rooms', room.image)
                     if os.path.exists(old_image_path):
                         os.remove(old_image_path)
                 
-                # Save new image
-                filename = secure_filename(image_file.filename)
-                image_path = os.path.join('rooms', filename)
-                full_path = os.path.join(app.root_path, 'static', 'images', 'rooms', filename)
-                image_file.save(full_path)
+                # Save new image using room name
+                image_path = handle_room_image(image_file, name, room.image)
                 room.image = image_path
             else:
                 flash('Format de fichier non autorisé. Utilisez JPG, JPEG, PNG ou GIF.', 'error')
                 return redirect(url_for('manage_rooms'))
-
-    db.session.commit()
-    flash('Chambre modifiée avec succès!', 'success')
+        
+        db.session.commit()
+        flash('Chambre modifiée avec succès!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Une erreur est survenue lors de la modification de la chambre.', 'error')
+        app.logger.error(f'Error editing room: {str(e)}')
+    
     return redirect(url_for('manage_rooms'))
 
-@app.route('/delete_room/<int:room_id>', methods=['POST'])
+@app.route('/delete_room/<int:room_id>', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def delete_room(room_id):
@@ -634,16 +637,22 @@ def delete_room(room_id):
         flash('Impossible de supprimer cette chambre car elle a des réservations existantes.', 'error')
         return redirect(url_for('manage_rooms'))
 
-    # Delete room image if it exists
-    if room.image:
-        image_path = os.path.join(app.root_path, 'static', 'images', room.image)
-        if os.path.exists(image_path):
-            os.remove(image_path)
+    try:
+        # Delete room image if it exists
+        if room.image:
+            image_path = os.path.join(app.root_path, 'static', 'images', 'rooms', room.image)
+            if os.path.exists(image_path):
+                os.remove(image_path)
 
-    db.session.delete(room)
-    db.session.commit()
+        db.session.delete(room)
+        db.session.commit()
+        
+        flash('Chambre supprimée avec succès!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Une erreur est survenue lors de la suppression de la chambre.', 'error')
+        app.logger.error(f'Error deleting room: {str(e)}')
     
-    flash('Chambre supprimée avec succès!', 'success')
     return redirect(url_for('manage_rooms'))
 
 @app.route('/delete_selected_reservations', methods=['POST'])
@@ -675,122 +684,157 @@ def delete_selected_reservations():
         flash('Une erreur est survenue lors de la suppression des réservations.', 'error')
     return redirect(url_for('my_reservations'))
 
+@app.route('/list_rooms')
+@login_required
+@admin_required
+def list_rooms():
+    """List all rooms in the database"""
+    rooms = Room.query.all()
+    return jsonify([{'id': room.id, 'name': room.name, 'capacity': room.capacity} for room in rooms])
+
 def generate_calendar_html(year, month, reservations):
-    # Get the first day of the month and the number of days
+    # Get first day of the month and number of days
     first_day = datetime(year, month, 1)
     if month == 12:
         last_day = datetime(year + 1, 1, 1) - timedelta(days=1)
     else:
         last_day = datetime(year, month + 1, 1) - timedelta(days=1)
-    
+    num_days = last_day.day
+
     # Get the weekday of the first day (0 = Monday, 6 = Sunday)
     first_weekday = first_day.weekday()
     
-    # Get the number of days in the month
-    num_days = last_day.day
-    
     # Start building the HTML
-    html = '<table class="calendar">\n'
-    html += '<tr><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th><th>Dim</th></tr>\n'
+    html = ['<table class="calendar">']
+    html.append('<tr><th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th><th>Dim</th></tr>')
+    
+    # Current date for highlighting today
+    today = datetime.now().date()
     
     # Add empty cells for days before the first day of the month
-    html += '<tr>'
+    html.append('<tr>')
     for i in range(first_weekday):
-        html += '<td class="empty"></td>'
+        html.append('<td class="empty"></td>')
     
-    # Add cells for each day
+    # Add cells for each day of the month
     current_weekday = first_weekday
-    current_date = datetime.now().date()
-    
     for day in range(1, num_days + 1):
         if current_weekday == 0 and day != 1:
-            html += '</tr><tr>'
+            html.append('</tr><tr>')
         
         date = datetime(year, month, day).date()
+        classes = ['calendar-day']
+        
+        if date == today:
+            classes.append('today')
+        
+        # Find reservations for this day
         day_reservations = []
         for reservation in reservations:
-            if reservation.start_date <= date <= reservation.end_date:
+            start_date = reservation.start_date if isinstance(reservation.start_date, datetime) else datetime.combine(reservation.start_date, datetime.min.time())
+            end_date = reservation.end_date if isinstance(reservation.end_date, datetime) else datetime.combine(reservation.end_date, datetime.min.time())
+            if start_date.date() <= date <= end_date.date():
                 day_reservations.append(reservation)
         
-        if day_reservations:
-            # Day has reservations
-            cell_class = 'reserved'
-            if date == current_date:
-                cell_class += ' today'
-            
-            tooltip = '<div class="tooltip">'
-            for reservation in day_reservations:
-                tooltip += f'{reservation.room.name} - {reservation.user.name}<br>'
-            tooltip += '</div>'
-            
-            html += f'<td class="{cell_class}">{day}{tooltip}</td>'
-        else:
-            # Day is free
-            cell_class = 'free'
-            if date == current_date:
-                cell_class += ' today'
-            if date < current_date:
-                cell_class += ' past'
-            
-            html += f'<td class="{cell_class}">{day}</td>'
+        html.append(f'<td class="{" ".join(classes)}">')
+        html.append(f'<div class="date-number">{day}</div>')
         
+        # Add reservations with room-specific colors
+        if day_reservations:
+            html.append('<div class="reservations">')
+            for reservation in day_reservations:
+                room_name = reservation.room.name
+                room_color = get_room_color(room_name)
+                
+                # Create tooltip content
+                tooltip = f"{reservation.user.name}<br>"
+                tooltip += f"Du {reservation.start_date.strftime('%d/%m/%Y')}<br>"
+                tooltip += f"Au {reservation.end_date.strftime('%d/%m/%Y')}"
+                
+                html.append(f'<div class="reservation-marker" style="background-color: {room_color};" '
+                          f'data-tooltip="{tooltip}">'
+                          f'<span class="user-name">{reservation.user.name}</span></div>')
+            html.append('</div>')
+        
+        html.append('</td>')
         current_weekday = (current_weekday + 1) % 7
     
-    # Add empty cells for remaining days in the last week
+    # Add empty cells for days after the last day of the month
     while current_weekday != 0:
-        html += '<td class="empty"></td>'
+        html.append('<td class="empty"></td>')
         current_weekday = (current_weekday + 1) % 7
     
-    html += '</tr>'
-    html += '</table>'
-    
-    return html
+    html.append('</tr>')
+    html.append('</table>')
+
+    # Add room color legend
+    html.append('<div class="room-legend">')
+    html.append('<h4>Légende des chambres</h4>')
+    html.append('<div class="legend-items">')
+    for room in Room.query.all():
+        room_color = get_room_color(room.name)
+        html.append(f'<div class="legend-item">'
+                   f'<div class="legend-color" style="background-color: {room_color};"></div>'
+                   f'<span>{room.name}</span>'
+                   f'</div>')
+    html.append('</div>')
+    html.append('</div>')
+
+    return '\n'.join(html)
 
 @app.route('/calendar', methods=['GET'])
 @app.route('/calendar/<int:year>/<int:month>', methods=['GET'])
+@login_required
 def calendar(year=None, month=None):
+    today = datetime.now()
     if year is None:
-        year = datetime.now().year
+        year = today.year
     if month is None:
-        month = datetime.now().month
+        month = today.month
 
-    # Get all reservations for the given month
-    start_date = datetime(year, month, 1).date()
-    if month == 12:
-        end_date = datetime(year + 1, 1, 1).date()
-    else:
-        end_date = datetime(year, month + 1, 1).date()
+    # Create datetime objects for current, previous and next months
+    try:
+        current_date = datetime(year, month, 1)
+        prev_date = (current_date - timedelta(days=1)).replace(day=1)
+        next_date = (current_date + timedelta(days=32)).replace(day=1)
+    except ValueError:
+        # Handle invalid month/year
+        return redirect(url_for('calendar'))
 
+    # Get all reservations for the current month
+    start_date = current_date.date()
+    end_date = (next_date - timedelta(days=1)).date()
+    
     reservations = Reservation.query.filter(
-        Reservation.start_date < end_date,
+        Reservation.start_date <= end_date,
         Reservation.end_date >= start_date
     ).all()
 
-    # Get the calendar HTML
+    # Generate calendar HTML
     calendar_html = generate_calendar_html(year, month, reservations)
     
-    # Get the month name in French
-    french_months = {
+    # Format dates for display
+    month_names = {
         1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
         5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
         9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
     }
-    month_name = french_months[month]
-
-    # Calculate previous and next month/year
-    prev_month = month - 1 if month > 1 else 12
-    prev_year = year if month > 1 else year - 1
-    next_month = month + 1 if month < 12 else 1
-    next_year = year if month < 12 else year + 1
-
+    
+    current_month_name = month_names[current_date.month]
+    prev_month_name = month_names[prev_date.month]
+    next_month_name = month_names[next_date.month]
+    
     return render_template('calendar.html',
                          calendar_html=calendar_html,
-                         current_month=month_name,
-                         current_year=year,
-                         prev_month=prev_month,
-                         prev_year=prev_year,
-                         next_month=next_month,
-                         next_year=next_year)
+                         current_month_name=current_month_name,
+                         current_year=current_date.year,
+                         prev_month_name=prev_month_name,
+                         prev_year=prev_date.year,
+                         prev_month=prev_date.month,
+                         next_month_name=next_month_name,
+                         next_year=next_date.year,
+                         next_month=next_date.month,
+                         reservations=reservations)
 
 @app.route('/my_reservations')
 @login_required
@@ -902,7 +946,7 @@ Modifié par: {current_user.name} ({current_user.email})"""
                          reservation=reservation,
                          rooms=rooms)
 
-@app.route('/delete_reservation/<int:reservation_id>', methods=['POST'])
+@app.route('/delete_reservation/<int:reservation_id>', methods=['GET', 'POST'])
 @login_required
 def delete_reservation(reservation_id):
     reservation = Reservation.query.get_or_404(reservation_id)
@@ -913,30 +957,34 @@ def delete_reservation(reservation_id):
         return redirect(url_for('my_reservations'))
     
     try:
-        db.session.delete(reservation)
-        db.session.commit()
-        flash('Réservation supprimée avec succès.', 'success')
+        # Send email to admins
+        subject = "Annulation de réservation"
+        body = f"""Une réservation a été annulée:
+        
+Chambre: {reservation.room.name}
+Dates: du {reservation.start_date.strftime('%d/%m/%Y')} au {reservation.end_date.strftime('%d/%m/%Y')}
+Annulée par: {current_user.name} ({current_user.email})"""
+        send_email_to_admins(subject, body)
     except Exception as e:
-        db.session.rollback()
-        flash('Une erreur est survenue lors de la suppression de la réservation.', 'error')
+        logger.error(f"Erreur lors de l'envoi de l'email aux administrateurs : {str(e)}")
     
+    # Delete the reservation
+    db.session.delete(reservation)
+    db.session.commit()
+    
+    flash('Réservation annulée avec succès.', 'success')
     return redirect(url_for('my_reservations'))
 
 @app.route('/debug_rooms')
-@login_required
 def debug_rooms():
     rooms = Room.query.all()
     room_data = []
     for room in rooms:
-        image_path = room.image
-        full_path = os.path.join(app.root_path, 'static', image_path) if image_path else None
-        exists = os.path.exists(full_path) if full_path else False
         room_data.append({
             'id': room.id,
             'name': room.name,
-            'image_path': image_path,
-            'full_path': full_path,
-            'file_exists': exists
+            'image': room.image,
+            'image_exists': os.path.exists(os.path.join(app.root_path, 'static', 'images', 'rooms', room.image)) if room.image else False
         })
     return jsonify(room_data)
 

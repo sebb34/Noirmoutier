@@ -5,30 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modifier la réservation - Maison Bourrut</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <h1>Modifier la réservation</h1>
+        <h1>Maison Bourrut à Noirmoutier</h1>
         <nav>
-            <a href="{{ url_for('home') }}">Accueil</a>
+            <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Accueil</a>
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('make_reservation') }}">Réserver</a>
-                <a href="{{ url_for('calendar') }}">Calendrier</a>
-                <a href="{{ url_for('my_reservations') }}">Mes Réservations</a>
-                {% if current_user.is_family %}
-                    <a href="{{ url_for('manage_rooms') }}">Gérer les chambres</a>
-                    <a href="{{ url_for('manage_users') }}">Gérer les utilisateurs</a>
+                <a href="{{ url_for('make_reservation') }}" {% if request.endpoint == 'make_reservation' %}class="active"{% endif %}>Réserver</a>
+                <a href="{{ url_for('calendar') }}" {% if request.endpoint == 'calendar' %}class="active"{% endif %}>Calendrier</a>
+                <a href="{{ url_for('my_reservations') }}" {% if request.endpoint == 'my_reservations' %}class="active"{% endif %}>Mes Réservations</a>
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('manage_rooms') }}" {% if request.endpoint == 'manage_rooms' %}class="active"{% endif %}>Gérer les chambres</a>
+                    <a href="{{ url_for('manage_users') }}" {% if request.endpoint == 'manage_users' %}class="active"{% endif %}>Gérer les utilisateurs</a>
                 {% endif %}
-                <a href="{{ url_for('profile') }}">Mon Profil</a>
+                <a href="{{ url_for('profile') }}" {% if request.endpoint == 'profile' %}class="active"{% endif %}>Mon Profil</a>
                 <a href="{{ url_for('logout') }}">Déconnexion</a>
             {% else %}
-                <a href="{{ url_for('login') }}">Connexion</a>
+                <a href="{{ url_for('login') }}" {% if request.endpoint == 'login' %}class="active"{% endif %}>Connexion</a>
+                <a href="{{ url_for('register') }}" {% if request.endpoint == 'register' %}class="active"{% endif %}>Inscription</a>
             {% endif %}
         </nav>
     </header>
 
     <main>
-        <section class="reservation-form">
+        <section class="content-section">
+            <h2>Modifier la réservation</h2>
+            
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -37,61 +42,59 @@
                 {% endif %}
             {% endwith %}
 
-            <form method="POST">
-                <div class="form-group">
-                    <label for="room">Chambre</label>
-                    <select id="room" name="room_id" required>
-                        {% for room in rooms %}
-                            <option value="{{ room.id }}" {% if room.id == reservation.room_id %}selected{% endif %}>
-                                {{ room.name }} ({{ room.capacity }} personnes)
-                            </option>
-                        {% endfor %}
-                    </select>
+            <div class="card">
+                <div class="card-image">
+                    <img src="{{ url_for('static', filename='images/rooms/' + reservation.room.image) if reservation.room.image else url_for('static', filename='images/room-placeholder.jpg') }}" alt="{{ reservation.room.name }}">
                 </div>
-
-                <div class="form-group">
-                    <label for="start_date">Date d'arrivée</label>
-                    <input type="date" id="start_date" name="start_date" 
-                           value="{{ reservation.start_date.strftime('%Y-%m-%d') }}" 
-                           min="{{ now.strftime('%Y-%m-%d') }}" required>
+                <div class="card-content">
+                    <h3>{{ reservation.room.name }}</h3>
+                    <form method="POST" class="edit-form">
+                        <div class="form-group">
+                            <label for="start_date">Date d'arrivée</label>
+                            <input type="date" id="start_date" name="start_date" value="{{ reservation.start_date.strftime('%Y-%m-%d') }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="end_date">Date de départ</label>
+                            <input type="date" id="end_date" name="end_date" value="{{ reservation.end_date.strftime('%Y-%m-%d') }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="number_of_guests">Nombre de personnes</label>
+                            <input type="number" id="number_of_guests" name="number_of_guests" value="{{ reservation.number_of_guests }}" min="1" max="{{ reservation.room.capacity }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="notes">Notes supplémentaires</label>
+                            <textarea id="notes" name="notes" rows="4">{{ reservation.notes }}</textarea>
+                        </div>
+                        <div class="button-group">
+                            <button type="submit" class="button">Sauvegarder les modifications</button>
+                            <button type="button" class="button danger" onclick="confirmDelete()">Annuler la réservation</button>
+                        </div>
+                    </form>
                 </div>
-
-                <div class="form-group">
-                    <label for="end_date">Date de départ</label>
-                    <input type="date" id="end_date" name="end_date" 
-                           value="{{ reservation.end_date.strftime('%Y-%m-%d') }}" 
-                           min="{{ now.strftime('%Y-%m-%d') }}" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="number_of_guests">Nombre de personnes</label>
-                    <input type="number" id="number_of_guests" name="number_of_guests" 
-                           value="{{ reservation.number_of_guests }}" min="1" required>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="button primary">Enregistrer les modifications</button>
-                    <a href="{{ url_for('my_reservations') }}" class="button secondary">Annuler</a>
-                </div>
-            </form>
+            </div>
         </section>
     </main>
 
+    <footer>
+        <p>&copy; {{ current_year }} Famille Bourrut - Noirmoutier</p>
+    </footer>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Ensure end_date is after start_date
-            const startDateInput = document.getElementById('start_date');
-            const endDateInput = document.getElementById('end_date');
+        function confirmDelete() {
+            if (confirm('Êtes-vous sûr de vouloir annuler cette réservation ?')) {
+                window.location.href = "{{ url_for('delete_reservation', reservation_id=reservation.id) }}";
+            }
+        }
 
-            startDateInput.addEventListener('change', function() {
-                endDateInput.min = this.value;
-                if (endDateInput.value < this.value) {
-                    endDateInput.value = this.value;
-                }
-            });
-
-            // Set initial min date for end_date
-            endDateInput.min = startDateInput.value;
+        // Add date validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const startDate = new Date(document.getElementById('start_date').value);
+            const endDate = new Date(document.getElementById('end_date').value);
+            
+            if (endDate <= startDate) {
+                e.preventDefault();
+                alert('La date de départ doit être postérieure à la date d\'arrivée.');
+            }
         });
     </script>
 </body>

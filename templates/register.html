@@ -6,20 +6,33 @@
     <title>Inscription - Maison Bourrut</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
         <h1>Maison Bourrut à Noirmoutier</h1>
         <nav>
-            <a href="{{ url_for('home') }}">Accueil</a>
-            <a href="{{ url_for('login') }}">Connexion</a>
-            <a href="{{ url_for('register') }}" class="active">Créer un compte</a>
+            <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Accueil</a>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('make_reservation') }}" {% if request.endpoint == 'make_reservation' %}class="active"{% endif %}>Réserver</a>
+                <a href="{{ url_for('calendar') }}" {% if request.endpoint == 'calendar' %}class="active"{% endif %}>Calendrier</a>
+                <a href="{{ url_for('my_reservations') }}" {% if request.endpoint == 'my_reservations' %}class="active"{% endif %}>Mes Réservations</a>
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('manage_rooms') }}" {% if request.endpoint == 'manage_rooms' %}class="active"{% endif %}>Gérer les chambres</a>
+                    <a href="{{ url_for('manage_users') }}" {% if request.endpoint == 'manage_users' %}class="active"{% endif %}>Gérer les utilisateurs</a>
+                {% endif %}
+                <a href="{{ url_for('profile') }}" {% if request.endpoint == 'profile' %}class="active"{% endif %}>Mon Profil</a>
+                <a href="{{ url_for('logout') }}">Déconnexion</a>
+            {% else %}
+                <a href="{{ url_for('login') }}" {% if request.endpoint == 'login' %}class="active"{% endif %}>Connexion</a>
+                <a href="{{ url_for('register') }}" {% if request.endpoint == 'register' %}class="active"{% endif %}>Inscription</a>
+            {% endif %}
         </nav>
     </header>
 
     <main>
-        <section class="auth-form">
-            <h2>Créer un compte</h2>
+        <section class="login-form">
+            <h2>Inscription</h2>
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -30,15 +43,13 @@
 
             <form method="POST">
                 <div class="form-group">
-                    <label for="name">Nom complet</label>
+                    <label for="name">Nom</label>
                     <input type="text" id="name" name="name" required>
                 </div>
-
                 <div class="form-group">
                     <label for="email">Email</label>
                     <input type="email" id="email" name="email" required>
                 </div>
-
                 <div class="form-group">
                     <label for="password">Mot de passe</label>
                     <div class="password-input-container">
@@ -48,7 +59,6 @@
                         </button>
                     </div>
                 </div>
-
                 <div class="form-group">
                     <label for="confirm_password">Confirmer le mot de passe</label>
                     <div class="password-input-container">
@@ -58,24 +68,22 @@
                         </button>
                     </div>
                 </div>
-
-                <button type="submit" class="button">Créer le compte</button>
+                <button type="submit" class="button">S'inscrire</button>
             </form>
-
-            <p class="auth-links">
-                Déjà un compte? <a href="{{ url_for('login') }}">Se connecter</a>
-            </p>
+            <div class="auth-links">
+                <a href="{{ url_for('login') }}">Déjà un compte? Se connecter</a>
+            </div>
         </section>
     </main>
 
     <footer>
-        <p>&copy; 2024 Famille Bourrut - Noirmoutier</p>
+        <p>&copy; {{ current_year }} Famille Bourrut - Noirmoutier</p>
     </footer>
 
     <script>
         function togglePassword(inputId) {
             const passwordInput = document.getElementById(inputId);
-            const toggleButton = passwordInput.parentElement.querySelector('.toggle-password i');
+            const toggleButton = passwordInput.nextElementSibling.querySelector('i');
             
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
@@ -87,17 +95,6 @@
                 toggleButton.classList.add('fa-eye');
             }
         }
-
-        // Add password confirmation validation
-        document.querySelector('form').addEventListener('submit', function(e) {
-            const password = document.getElementById('password');
-            const confirmPassword = document.getElementById('confirm_password');
-            
-            if (password.value !== confirmPassword.value) {
-                e.preventDefault();
-                alert('Les mots de passe ne correspondent pas.');
-            }
-        });
     </script>
 </body>
 </html>
