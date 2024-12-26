@@ -767,55 +767,38 @@ def generate_calendar_html(year, month, reservations):
 @app.route('/calendar/<int:year>/<int:month>', methods=['GET'])
 @login_required
 def calendar(year=None, month=None):
-    today = datetime.now()
     if year is None:
-        year = today.year
+        year = datetime.now().year
     if month is None:
-        month = today.month
+        month = datetime.now().month
 
-    # Create datetime objects for current, previous and next months
-    try:
-        current_date = datetime(year, month, 1)
-        prev_date = (current_date - timedelta(days=1)).replace(day=1)
-        next_date = (current_date + timedelta(days=32)).replace(day=1)
-    except ValueError:
-        # Handle invalid month/year
-        return redirect(url_for('calendar'))
+    current_date = datetime.now().date()
 
-    # Get all reservations for the current month
-    start_date = current_date.date()
-    end_date = (next_date - timedelta(days=1)).date()
-    
-    reservations = Reservation.query.filter(
-        Reservation.start_date <= end_date,
+    # Get all future reservations for list view
+    list_reservations = Reservation.query.filter(
+        Reservation.end_date >= current_date
+    ).order_by(Reservation.start_date).all()
+
+    # Get reservations for the calendar view (keep this filtered by month)
+    start_date = datetime(year, month, 1).date()
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1).date()
+    else:
+        end_date = datetime(year, month + 1, 1).date()
+
+    calendar_reservations = Reservation.query.filter(
+        Reservation.start_date < end_date,
         Reservation.end_date >= start_date
     ).all()
 
-    # Generate calendar HTML
-    calendar_html = generate_calendar_html(year, month, reservations)
-    
-    # Format dates for display
-    month_names = {
-        1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
-        5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
-        9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
-    }
-    
-    current_month_name = month_names[current_date.month]
-    prev_month_name = month_names[prev_date.month]
-    next_month_name = month_names[next_date.month]
+    calendar_html = generate_calendar_html(year, month, calendar_reservations)
     
     return render_template('calendar.html',
                          calendar_html=calendar_html,
-                         current_month_name=current_month_name,
-                         current_year=current_date.year,
-                         prev_month_name=prev_month_name,
-                         prev_year=prev_date.year,
-                         prev_month=prev_date.month,
-                         next_month_name=next_month_name,
-                         next_year=next_date.year,
-                         next_month=next_date.month,
-                         reservations=reservations)
+                         reservations=list_reservations,
+                         current_year=year,
+                         current_month=month,
+                         now=datetime.now())
 
 @app.route('/my_reservations')
 @login_required
