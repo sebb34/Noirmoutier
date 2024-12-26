@@ -1,11 +1,15 @@
 :root {
-    --primary-color: #1e3d59;
-    --secondary-color: #3d5a80;
-    --background-color: #f0f5f9;
-    --text-color: #2b4257;
-    --accent-color: #17a2b8;
+    --primary-color: #1a237e;
+    --secondary-color: #0d47a1;
+    --background-color: #f5f8ff;
+    --text-color: #2c3e50;
+    --accent-color: #2196f3;
     --light-blue: #e3f2fd;
-    --deep-blue: #1a237e;
+    --deep-blue: #0d47a1;
+    --hover-blue: #1565c0;
+    --success-color: #00838f;
+    --warning-color: #0277bd;
+    --error-color: #c62828;
 }
 
 * {
@@ -128,7 +132,7 @@ main {
 }
 
 .button:hover {
-    background-color: var(--deep-blue);
+    background-color: var(--hover-blue);
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
@@ -176,6 +180,7 @@ main {
     overflow: hidden;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid var(--light-blue);
 }
 
 .room-card:hover {

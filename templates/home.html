@@ -17,6 +17,8 @@
             --success-color: #27ae60;
             --warning-color: #f1c40f;
             --error-color: #e74c3c;
+            --light-blue: #87ceeb;
+            --deep-blue: #4682b4;
         }
 
         * {
@@ -115,11 +117,13 @@
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             text-decoration: none;
             color: inherit;
+            border: 1px solid var(--light-blue);
         }
 
         .room-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-color: var(--accent-color);
         }
 
         .room-content {
@@ -170,16 +174,19 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-left: 3px solid transparent;
         }
 
         .reservation-item.en-cours {
             background-color: var(--light-blue);
             color: var(--deep-blue);
+            border-left-color: var(--deep-blue);
         }
 
         .reservation-item.à-venir {
-            background-color: #e3f2fd;
-            color: var(--primary-color);
+            background-color: var(--light-blue);
+            color: var(--secondary-color);
+            border-left-color: var(--accent-color);
         }
 
         .user-info {
@@ -196,23 +203,13 @@
             max-width: 100%;
         }
 
-        .hero-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-
         .hero-overlay {
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5));
+            background: linear-gradient(rgba(13, 71, 161, 0.3), rgba(26, 35, 126, 0.7));
             z-index: 2;
         }
 
@@ -247,12 +244,7 @@
             border-radius: 8px;
             margin: 2rem 0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .upcoming-reservations h2 {
-            color: var(--primary-color);
-            margin-bottom: 1.5rem;
-            font-family: 'Playfair Display', serif;
+            border: 1px solid var(--light-blue);
         }
 
         .reservation-preview {
@@ -270,17 +262,13 @@
             text-decoration: none;
             color: inherit;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid var(--light-blue);
         }
 
         .reservation-preview-card:hover {
             transform: translateY(-3px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-
-        .reservation-preview-card h3 {
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-            font-size: 1.2rem;
+            border-color: var(--accent-color);
         }
 
         .reservation-date {
