@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accueil - Maison Bourrut</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Raleway:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -108,24 +109,17 @@
 
         .room-card {
             background: white;
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
-            box-shadow: var(--card-shadow);
-            transition: transform 0.3s ease;
-            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
             text-decoration: none;
             color: inherit;
-            display: block;
         }
 
         .room-card:hover {
             transform: translateY(-5px);
-        }
-
-        .room-image {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
         .room-content {
@@ -133,21 +127,27 @@
         }
 
         .room-title {
-            font-family: 'Playfair Display', serif;
             color: var(--primary-color);
+            font-family: 'Playfair Display', serif;
             font-size: 1.5rem;
             margin-bottom: 1rem;
         }
 
-        .room-info {
+        .capacity-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8rem;
             margin-bottom: 1rem;
-            color: var(--text-color);
         }
 
         .room-description {
-            color: #666;
+            color: var(--text-color);
             margin-bottom: 1rem;
             font-size: 0.9rem;
+            opacity: 0.9;
         }
 
         .reservation-list {
@@ -173,13 +173,13 @@
         }
 
         .reservation-item.en-cours {
-            background-color: #d4edda;
-            color: var(--success-color);
+            background-color: var(--light-blue);
+            color: var(--deep-blue);
         }
 
         .reservation-item.à-venir {
-            background-color: #cce5ff;
-            color: var(--secondary-color);
+            background-color: #e3f2fd;
+            color: var(--primary-color);
         }
 
         .user-info {
@@ -187,118 +187,13 @@
             opacity: 0.8;
         }
 
-        .capacity-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            background-color: var(--secondary-color);
-            color: white;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            margin-bottom: 1rem;
-        }
-
-        .upcoming-reservations {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            margin: 2rem 0;
-            box-shadow: var(--card-shadow);
-        }
-
-        .upcoming-reservations h2 {
-            color: var(--primary-color);
-            margin-bottom: 1.5rem;
-            font-family: 'Playfair Display', serif;
-        }
-
-        .reservation-preview {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1rem;
-        }
-
-        .reservation-preview-card {
-            background: var(--background-color);
-            padding: 1.5rem;
-            border-radius: 8px;
-            transition: transform 0.3s ease;
-            cursor: pointer;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .reservation-preview-card:hover {
-            transform: translateY(-3px);
-        }
-
-        .reservation-preview-card h3 {
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-            font-size: 1.2rem;
-        }
-
-        .reservation-preview-card p {
-            color: var(--text-color);
-            font-size: 0.9rem;
-            margin: 0.25rem 0;
-        }
-
-        .reservation-date {
-            color: var(--secondary-color);
-            font-weight: 600;
-        }
-
-        @media (max-width: 768px) {
-            header {
-                padding: 1rem;
-            }
-
-            h1 {
-                font-size: 2rem;
-            }
-
-            nav {
-                flex-direction: column;
-            }
-
-            nav a {
-                text-align: center;
-            }
-
-            .rooms-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .cta-button {
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            background-color: var(--secondary-color);
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            transition: background-color 0.3s ease;
-            margin-top: 1rem;
-        }
-
-        .cta-button:hover {
-            background-color: #2980b9;
-        }
-
-        footer {
-            background-color: var(--primary-color);
-            color: white;
-            text-align: center;
-            padding: 2rem;
-            margin-top: 4rem;
-        }
-
         .hero-section {
             position: relative;
             height: 70vh;
             min-height: 500px;
             overflow: hidden;
-            margin-bottom: 2rem;
+            margin: -2rem auto 2rem;
+            max-width: 100%;
         }
 
         .hero-image {
@@ -317,7 +212,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.3);
+            background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5));
             z-index: 2;
         }
 
@@ -336,7 +231,7 @@
         .hero-content h1 {
             font-size: 3.5rem;
             margin-bottom: 1rem;
-            color: white;
+            font-family: 'Playfair Display', serif;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
@@ -346,13 +241,69 @@
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
         }
 
+        .upcoming-reservations {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .upcoming-reservations h2 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .reservation-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .reservation-preview-card {
+            background: var(--background-color);
+            padding: 1.5rem;
+            border-radius: 8px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .reservation-preview-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .reservation-preview-card h3 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .reservation-date {
+            color: var(--accent-color);
+            font-weight: 600;
+            margin: 0.25rem 0;
+        }
+
         @media (max-width: 768px) {
             .hero-content h1 {
-                font-size: 2.5rem;
+                font-size: 2rem;
             }
             
             .hero-content p {
                 font-size: 1rem;
+            }
+
+            .rooms-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .reservation-preview {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -360,7 +311,7 @@
 <body>
     <header>
         <nav>
-            <a href="{{ url_for('home') }}">Accueil</a>
+            <a href="{{ url_for('home') }}" class="active">Accueil</a>
             {% if current_user.is_authenticated %}
                 <a href="{{ url_for('make_reservation') }}">Réserver</a>
                 <a href="{{ url_for('calendar') }}">Calendrier</a>
@@ -386,11 +337,11 @@
             <p>Découvrez le charme de l'île de Noirmoutier dans notre maison familiale</p>
             {% if not current_user.is_authenticated %}
                 <div>
-                    <a href="{{ url_for('login') }}" class="cta-button">Se connecter</a>
-                    <a href="{{ url_for('register') }}" class="cta-button" style="margin-left: 1rem;">Créer un compte</a>
+                    <a href="{{ url_for('login') }}" class="button">Se connecter</a>
+                    <a href="{{ url_for('register') }}" class="button" style="margin-left: 1rem;">Créer un compte</a>
                 </div>
             {% else %}
-                <a href="{{ url_for('make_reservation') }}" class="cta-button">Réserver maintenant</a>
+                <a href="{{ url_for('make_reservation') }}" class="button">Réserver maintenant</a>
             {% endif %}
         </div>
     </div>
@@ -461,12 +412,12 @@
                 {% endfor %}
             </div>
         {% else %}
-            <div class="welcome-message">
+            <div class="cta">
                 <h2>Bienvenue à la Maison Bourrut !</h2>
                 <p>Connectez-vous pour découvrir nos chambres et réserver votre séjour à Noirmoutier.</p>
                 <div style="margin-top: 1rem;">
-                    <a href="{{ url_for('login') }}" class="cta-button">Se connecter</a>
-                    <a href="{{ url_for('register') }}" class="cta-button" style="margin-left: 1rem;">Créer un compte</a>
+                    <a href="{{ url_for('login') }}" class="button">Se connecter</a>
+                    <a href="{{ url_for('register') }}" class="button" style="margin-left: 1rem;">Créer un compte</a>
                 </div>
             </div>
         {% endif %}
