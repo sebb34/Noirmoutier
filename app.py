@@ -144,6 +144,15 @@ class Reservation(db.Model):
     room = db.relationship('Room', backref=db.backref('reservations', lazy=True))
     user = db.relationship('User', backref=db.backref('reservations', lazy=True))
 
+@app.template_filter('month_name')
+def month_name_filter(month_number):
+    month_names = {
+        1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril',
+        5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août',
+        9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre'
+    }
+    return month_names.get(month_number, '')
+
 @app.template_filter('current_year')
 def current_year_filter(text):
     return datetime.now().year
@@ -153,7 +162,8 @@ def utility_processor():
     """Make utility functions available to all templates"""
     return {
         'current_year': datetime.now().year,
-        'get_room_color': get_room_color
+        'get_room_color': get_room_color,
+        'month_name': month_name_filter
     }
 
 @app.route('/login', methods=['GET', 'POST'])
