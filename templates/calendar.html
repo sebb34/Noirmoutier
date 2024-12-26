@@ -283,12 +283,14 @@
 
         .view-button {
             padding: 8px 15px;
+            border: none;
             border-radius: 4px;
             background-color: #007bff;
             color: white;
+            cursor: pointer;
             text-decoration: none;
             font-size: 0.9em;
-            transition: background-color 0.2s;
+            transition: all 0.2s ease;
         }
 
         .view-button:hover {
@@ -307,42 +309,102 @@
             display: none;
         }
 
-        .reservation-card {
-            display: block;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            background-color: white;
-            text-decoration: none;
+        #list-view {
+            background-color: #f8f9fa;
+            padding: 2rem;
+            border-radius: 8px;
+        }
+
+        #list-view h2 {
+            margin-bottom: 1.5rem;
             color: #333;
+        }
+
+        .reservation-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .reservation-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            border-left: 4px solid var(--room-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
         }
 
         .reservation-card:hover {
-            background-color: #f9f9f9;
+            transform: translateY(-4px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
 
         .reservation-content {
+            padding: 1.5rem;
+            flex-grow: 1;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            background-color: rgba(var(--room-color-rgb), 0.05);
+        }
+
+        .reservation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
         }
 
         .reservation-room {
-            font-weight: bold;
+            font-size: 1.2em;
+            font-weight: 600;
             color: #333;
+        }
+
+        .reservation-user {
+            font-size: 0.9em;
+            color: #666;
+            text-align: right;
+            font-style: italic;
         }
 
         .reservation-date {
             color: #666;
+            margin-bottom: 1rem;
+            line-height: 1.4;
         }
 
         .reservation-guests {
-            color: #444;
+            margin-top: auto;
+            padding: 0.5rem 1rem;
+            background-color: var(--room-color);
+            color: #333;
+            border-radius: 20px;
+            display: inline-block;
+            align-self: flex-start;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
         }
 
-        .reservation-user {
+        .reservation-card:hover .reservation-guests {
+            background-color: #333;
+            color: white;
+        }
+
+        .no-reservations {
+            text-align: center;
             color: #666;
+            font-style: italic;
+            grid-column: 1 / -1;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
     </style>
 </head>
@@ -397,7 +459,10 @@
                             {% set rgb = 'rgb(' + color[1:3]|int(base=16)|string + ',' + color[3:5]|int(base=16)|string + ',' + color[5:7]|int(base=16)|string + ')' %}
                             <a href="{{ url_for('edit_reservation', reservation_id=reservation.id) }}" class="reservation-card" style="--room-color: {{ color }}; --room-color-rgb: {{ rgb }}">
                                 <div class="reservation-content">
-                                    <div class="reservation-room">{{ reservation.room.name }}</div>
+                                    <div class="reservation-header">
+                                        <div class="reservation-room">{{ reservation.room.name }}</div>
+                                        <div class="reservation-user">{{ reservation.user.name }}</div>
+                                    </div>
                                     <div class="reservation-date">
                                         Du {{ reservation.start_date.strftime('%d/%m/%Y') }}<br>
                                         au {{ reservation.end_date.strftime('%d/%m/%Y') }}
@@ -405,11 +470,6 @@
                                     <div class="reservation-guests">
                                         {{ reservation.number_of_guests }} personne{{ 's' if reservation.number_of_guests > 1 else '' }}
                                     </div>
-                                    {% if current_user.is_admin %}
-                                        <div class="reservation-user">
-                                            Réservé par {{ reservation.user.name }}
-                                        </div>
-                                    {% endif %}
                                 </div>
                             </a>
                         {% else %}
