@@ -192,27 +192,8 @@ def logout():
 @app.route('/')
 def home():
     rooms = Room.query.all()
-    room_reservations = {}
-    next_reservations = []
-    
-    if current_user.is_authenticated:
-        # Get room reservations
-        for room in rooms:
-            future_reservations = Reservation.query.filter(
-                Reservation.room_id == room.id,
-                Reservation.end_date >= datetime.now()
-            ).order_by(Reservation.start_date).all()
-            room_reservations[room.id] = future_reservations
-        
-        # Get next 3 reservations across all rooms
-        next_reservations = Reservation.query.filter(
-            Reservation.end_date >= datetime.now()
-        ).order_by(Reservation.start_date).limit(3).all()
-
     return render_template('home.html', 
-                         rooms=rooms, 
-                         room_reservations=room_reservations,
-                         next_reservations=next_reservations,
+                         rooms=rooms,
                          now=datetime.now())
 
 @app.route('/reservations', methods=['GET'])
