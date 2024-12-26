@@ -49,37 +49,28 @@ def get_room_color(room_name):
     return ROOM_COLORS.get(room_name, '#CCCCCC')
 
 def handle_room_image(image_file, room_name, old_image=None):
-    """Handle room image upload with room name-based filenames."""
-    if image_file and allowed_file(image_file.filename):
-        try:
-            # Get file extension
-            _, ext = os.path.splitext(image_file.filename)
-            
-            # Create a filename using room name: room_name.ext
-            # Clean the room name (remove special characters, spaces to underscores, lowercase)
-            clean_name = "".join(c.lower() if c.isalnum() else "_" for c in room_name)
-            clean_name = clean_name.replace(" ", "_")
-            filename = f'room_{clean_name}{ext.lower()}'
-            
-            # Create rooms directory if it doesn't exist
-            upload_folder = os.path.join(app.root_path, 'static', 'images', 'rooms')
-            os.makedirs(upload_folder, exist_ok=True)
-            
-            # Delete old image if it exists
-            if old_image:
-                old_image_path = os.path.join(upload_folder, old_image)
+    """Handle room image upload"""
+    if image_file:
+        # Create a secure filename
+        filename = secure_filename(image_file.filename)
+        # Add room name prefix to avoid conflicts
+        filename = f"room_{room_name.lower().replace(' ', '_')}.jpg"
+        
+        # Save the file
+        image_path = os.path.join(app.root_path, 'static/images/rooms', filename)
+        image_file.save(image_path)
+        
+        # Delete old image if it exists and is different
+        if old_image and old_image != filename:
+            try:
+                old_image_path = os.path.join(app.root_path, 'static/images/rooms', old_image)
                 if os.path.exists(old_image_path):
                     os.remove(old_image_path)
-            
-            # Save the new image
-            image_path = os.path.join(upload_folder, filename)
-            image_file.save(image_path)
-            
-            return filename
-        except Exception as e:
-            app.logger.error(f"Error handling room image: {str(e)}")
-            return None
-    return None
+            except Exception as e:
+                logger.error(f"Error deleting old image: {str(e)}")
+        
+        return filename
+    return old_image
 
 def allowed_file(filename):
     """Check if the file extension is allowed."""
