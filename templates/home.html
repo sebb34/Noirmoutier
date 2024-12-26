@@ -340,9 +340,9 @@
 
         <section class="rooms">
             <h2>Nos Chambres</h2>
-            <div class="room-grid">
+            <div class="rooms-grid">
                 {% for room in rooms %}
-                    <a href="{{ url_for('create_reservation', room_id=room.id) }}" class="room-card">
+                    <a href="{{ url_for('make_reservation', room_id=room.id) }}" class="room-card">
                         <div class="room-content">
                             <h3>{{ room.name }}</h3>
                             <span class="capacity-badge">{{ room.capacity }} personnes</span>
