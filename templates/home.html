@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accueil - Maison Bourrut</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Raleway:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -298,117 +298,60 @@
 </head>
 <body>
     <header>
+        <h1>Maison Bourrut à Noirmoutier</h1>
         <nav>
             <a href="{{ url_for('home') }}" class="active">Accueil</a>
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('make_reservation') }}">Réserver</a>
-                <a href="{{ url_for('calendar') }}">Calendrier</a>
-                <a href="{{ url_for('my_reservations') }}">Mes Réservations</a>
-                {% if current_user.is_admin %}
-                    <a href="{{ url_for('manage_rooms') }}">Gérer les chambres</a>
-                    <a href="{{ url_for('manage_users') }}">Gérer les utilisateurs</a>
-                {% endif %}
-                <a href="{{ url_for('profile') }}">Mon Profil</a>
+                <a href="{{ url_for('reservations') }}">Mes réservations</a>
                 <a href="{{ url_for('logout') }}">Déconnexion</a>
             {% else %}
                 <a href="{{ url_for('login') }}">Connexion</a>
-                <a href="{{ url_for('register') }}">Créer un compte</a>
             {% endif %}
         </nav>
     </header>
 
-    <div class="hero-section">
-        <img src="{{ url_for('static', filename='images/noirmoutier-aerial.png') }}" alt="Vue aérienne de Noirmoutier" class="hero-image">
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <h1>Maison Bourrut à Noirmoutier</h1>
-            <p>Découvrez le charme de l'île de Noirmoutier dans notre maison familiale</p>
-            {% if not current_user.is_authenticated %}
-                <div>
-                    <a href="{{ url_for('login') }}" class="button">Se connecter</a>
-                    <a href="{{ url_for('register') }}" class="button" style="margin-left: 1rem;">Créer un compte</a>
-                </div>
-            {% else %}
-                <a href="{{ url_for('make_reservation') }}" class="button">Réserver maintenant</a>
-            {% endif %}
-        </div>
-    </div>
-
     <main>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert {{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+        <div class="hero-section">
+            <img src="{{ url_for('static', filename='images/noirmoutier-aerial.png') }}" alt="Vue aérienne de Noirmoutier" class="hero-image">
+            <div class="hero-overlay"></div>
+            <div class="hero-content">
+                <h1>Bienvenue à la Maison Bourrut</h1>
+                <p>Découvrez notre charmante maison familiale à Noirmoutier</p>
+            </div>
+        </div>
 
         {% if current_user.is_authenticated %}
-            {% if next_reservations %}
-            <div class="upcoming-reservations">
-                <h2>Prochaines réservations</h2>
+            <section class="upcoming-reservations">
+                <h2>Vos prochaines réservations</h2>
                 <div class="reservation-preview">
                     {% for reservation in next_reservations %}
-                    <a href="{{ url_for('edit_reservation', reservation_id=reservation.id) }}" class="reservation-preview-card">
-                        <h3>{{ reservation.room.name }}</h3>
-                        <p class="reservation-date">Du {{ reservation.start_date.strftime('%d/%m/%Y') }}</p>
-                        <p class="reservation-date">Au {{ reservation.end_date.strftime('%d/%m/%Y') }}</p>
-                        <p>{{ reservation.number_of_guests }} personne{% if reservation.number_of_guests > 1 %}s{% endif %}</p>
-                        {% if current_user.is_admin %}
-                        <p>Réservé par : {{ reservation.user.name }}</p>
-                        {% endif %}
-                    </a>
+                        <a href="{{ url_for('edit_reservation', id=reservation.id) }}" class="reservation-preview-card">
+                            <h3>{{ reservation.room.name }}</h3>
+                            <p class="reservation-date">{{ reservation.start_date.strftime('%d/%m/%Y') }} - {{ reservation.end_date.strftime('%d/%m/%Y') }}</p>
+                            <p>{{ reservation.number_of_people }} personnes</p>
+                            <div class="reservation-status {{ reservation.status }}">{{ reservation.status }}</div>
+                        </a>
+                    {% else %}
+                        <p>Aucune réservation à venir</p>
                     {% endfor %}
                 </div>
-            </div>
-            {% endif %}
-            
-            <div class="rooms-grid">
+            </section>
+        {% endif %}
+
+        <section class="rooms">
+            <h2>Nos Chambres</h2>
+            <div class="room-grid">
                 {% for room in rooms %}
-                    <a href="{{ url_for('make_reservation', room_id=room.id) }}" class="room-card">
-                        {% if room.image %}
-                            <img src="{{ url_for('static', filename=room.image) }}" alt="{{ room.name }}" class="room-image">
-                        {% endif %}
+                    <a href="{{ url_for('create_reservation', room_id=room.id) }}" class="room-card">
                         <div class="room-content">
-                            <h2 class="room-title">{{ room.name }}</h2>
-                            <span class="capacity-badge">
-                                {{ room.capacity }} personne{% if room.capacity > 1 %}s{% endif %}
-                            </span>
-                            {% if room.description %}
-                                <p class="room-description">{{ room.description }}</p>
-                            {% endif %}
-                            
-                            <div class="reservation-list">
-                                <h3>Réservations</h3>
-                                {% if room_reservations[room.id] %}
-                                    {% for reservation in room_reservations[room.id] %}
-                                        <div class="reservation-item {{ 'en-cours' if now.date() >= reservation.start_date and now.date() <= reservation.end_date else 'à-venir' }}">
-                                            <span>
-                                                {{ reservation.start_date.strftime('%d/%m/%Y') }} - {{ reservation.end_date.strftime('%d/%m/%Y') }}
-                                            </span>
-                                            {% if current_user.is_admin %}
-                                                <span class="user-info">{{ reservation.user.name }}</span>
-                                            {% endif %}
-                                        </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <p>Aucune réservation à venir</p>
-                                {% endif %}
-                            </div>
+                            <h3>{{ room.name }}</h3>
+                            <span class="capacity-badge">{{ room.capacity }} personnes</span>
+                            <p>{{ room.description }}</p>
                         </div>
                     </a>
                 {% endfor %}
             </div>
-        {% else %}
-            <div class="cta">
-                <h2>Bienvenue à la Maison Bourrut !</h2>
-                <p>Connectez-vous pour découvrir nos chambres et réserver votre séjour à Noirmoutier.</p>
-                <div style="margin-top: 1rem;">
-                    <a href="{{ url_for('login') }}" class="button">Se connecter</a>
-                    <a href="{{ url_for('register') }}" class="button" style="margin-left: 1rem;">Créer un compte</a>
-                </div>
-            </div>
-        {% endif %}
+        </section>
     </main>
 
     <footer>
