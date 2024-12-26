@@ -139,36 +139,34 @@
         .card {
             background: white;
             border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border-left: 4px solid var(--room-color);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             text-decoration: none;
             color: inherit;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border: 1px solid var(--light-blue);
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            height: 320px;
+            cursor: pointer;
+            position: relative;
         }
 
         .card:hover {
-            transform: translateY(-3px);
+            transform: translateY(-4px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            border-color: var(--accent-color);
         }
 
         .card-image {
             width: 100%;
-            height: 180px;
+            height: 200px;
             overflow: hidden;
-            border-radius: 8px 8px 0 0;
-            flex-shrink: 0;
         }
 
         .card-image img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: center;
         }
 
         .card-content {
@@ -176,6 +174,7 @@
             flex-grow: 1;
             display: flex;
             flex-direction: column;
+            background-color: rgba(var(--room-color-rgb), 0.05);
         }
 
         .card-content h3 {
@@ -183,184 +182,27 @@
             color: #333;
         }
 
-        .next-reservation {
+        .card-content p {
+            margin: 0 0 1rem 0;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .capacity {
             margin-top: auto;
-            padding-top: 1rem;
-            border-top: 1px solid #eee;
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .next-reservation-date {
-            color: #333;
-            font-weight: 500;
-            margin-top: 0.25rem;
-        }
-
-        .no-reservation {
-            color: #888;
-            font-style: italic;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            background-color: var(--accent-color);
-            color: white;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            margin-bottom: 1rem;
-        }
-
-        .date {
-            color: var(--accent-color);
-            font-weight: 600;
-            margin: 0.25rem 0;
-        }
-
-        .status {
-            font-size: 0.8rem;
-            opacity: 0.8;
-        }
-
-        .status.en-cours {
-            background-color: var(--light-blue);
-            color: var(--deep-blue);
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .status.à-venir {
-            background-color: var(--light-blue);
-            color: var(--secondary-color);
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .room-card {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            overflow: hidden;
-            transition: transform 0.2s;
-            position: relative;
-        }
-
-        .room-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background-color: var(--room-color);
-        }
-
-        .capacity-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            color: #333;
-            background-color: var(--room-color);
-            margin-bottom: 10px;
-        }
-
-        .room-info {
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-        }
-
-        .room-info h3 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-
-        .room-info p {
-            margin: 5px 0;
-            color: #666;
-        }
-
-        .room-image {
-            width: 100%;
-            height: 200px;
-            overflow: hidden;
-        }
-
-        .room-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .upcoming-reservations {
-            margin-top: 2rem;
-        }
-
-        .upcoming-reservations h3 {
-            margin-bottom: 1rem;
-            color: #333;
-        }
-
-        .reservation-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-        }
-
-        .reservation-item {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-            border-left: 4px solid var(--room-color);
-            height: 100%;
-        }
-
-        .reservation-info {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .reservation-info h4 {
-            margin: 0;
-            color: #333;
-            font-size: 1.1em;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        .reservation-user {
-            font-size: 0.9em;
-            color: #666;
-            font-weight: normal;
-        }
-
-        .reservation-date {
-            color: #666;
-            font-size: 0.9em;
-            margin-bottom: 1rem;
-            flex-grow: 1;
-        }
-
-        .reservation-guest {
             padding: 0.5rem 1rem;
             background-color: var(--room-color);
             color: #333;
             border-radius: 20px;
             display: inline-block;
+            align-self: flex-start;
             font-size: 0.9em;
-            text-align: center;
-            width: fit-content;
-            align-self: flex-end;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover .capacity {
+            background-color: #333;
+            color: white;
         }
 
         @media (max-width: 768px) {
@@ -374,16 +216,6 @@
 
             .card-grid {
                 grid-template-columns: 1fr;
-            }
-
-            .reservation-info h4 {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.5rem;
-            }
-
-            .reservation-guest {
-                align-self: flex-start;
             }
         }
     </style>
@@ -428,65 +260,28 @@
                 </div>
             </div>
 
-            {% if current_user.is_authenticated %}
-                <div class="upcoming-reservations">
-                    <h3>Les prochaines réservations</h3>
-                    <div class="reservation-list">
-                        {% for reservation in next_reservations %}
-                            <div class="reservation-item" style="--room-color: {{ get_room_color(reservation.room.name) }}">
-                                <div class="reservation-info">
-                                    <h4>
-                                        {{ reservation.room.name }}
-                                        <span class="reservation-user">{{ reservation.user.name }}</span>
-                                    </h4>
-                                    <div class="reservation-date">
-                                        Du {{ reservation.start_date.strftime('%d/%m/%Y') }} au {{ reservation.end_date.strftime('%d/%m/%Y') }}
-                                    </div>
-                                    <div class="reservation-guest">
-                                        {{ reservation.number_of_guests }} personne{{ 's' if reservation.number_of_guests > 1 else '' }}
-                                    </div>
-                                </div>
-                            </div>
-                        {% else %}
-                            <p>Aucune réservation à venir</p>
-                        {% endfor %}
-                    </div>
-                </div>
-            {% endif %}
-
             <div class="section-content">
                 <h2>Les Chambres</h2>
                 <div class="card-grid">
                     {% for room in rooms %}
-                        <div class="card">
+                        {% set color = get_room_color(room.name) %}
+                        {% set rgb = 'rgb(' + color[1:3]|int(base=16)|string + ',' + color[3:5]|int(base=16)|string + ',' + color[5:7]|int(base=16)|string + ')' %}
+                        <a href="{{ url_for('make_reservation') }}" class="card" style="--room-color: {{ color }}; --room-color-rgb: {{ rgb }}">
                             <div class="card-image">
                                 {% if room.image %}
                                     <img src="{{ url_for('static', filename='images/rooms/' + room.image) }}" alt="{{ room.name }}">
                                 {% else %}
-                                    <img src="{{ url_for('static', filename='images/default-room.jpg') }}" alt="Default room image">
+                                    <img src="{{ url_for('static', filename='images/rooms/default-room.jpg') }}" alt="{{ room.name }}">
                                 {% endif %}
                             </div>
                             <div class="card-content">
                                 <h3>{{ room.name }}</h3>
                                 <p>{{ room.description }}</p>
-                                <p>Capacité: {{ room.capacity }} personnes</p>
-                                
-                                <div class="next-reservation">
-                                    <div>Prochaine réservation:</div>
-                                    {% if next_reservations[room.id] %}
-                                        {% set reservation = next_reservations[room.id] %}
-                                        <div class="next-reservation-date">
-                                            Du {{ reservation.start_date.strftime('%d/%m/%Y') }} au {{ reservation.end_date.strftime('%d/%m/%Y') }}
-                                            {% if current_user.is_admin %}
-                                                <br>par {{ reservation.user.name }}
-                                            {% endif %}
-                                        </div>
-                                    {% else %}
-                                        <div class="no-reservation">Aucune réservation prévue</div>
-                                    {% endif %}
+                                <div class="capacity">
+                                    {{ room.capacity }} personne{{ 's' if room.capacity > 1 else '' }}
                                 </div>
                             </div>
-                        </div>
+                        </a>
                     {% endfor %}
                 </div>
             </div>
