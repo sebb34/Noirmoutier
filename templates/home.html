@@ -309,7 +309,7 @@
     </style>
 </head>
 <body>
-    <header>
+    <header id="main-header">
         <h1>Maison Bourrut à Noirmoutier</h1>
         <nav>
             <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Accueil</a>
@@ -406,5 +406,26 @@
     <footer>
         <p>&copy; {{ current_year }} Famille Bourrut - Noirmoutier</p>
     </footer>
+
+    <script>
+        let lastScrollTop = 0;
+        const header = document.getElementById('main-header');
+        
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            if (scrollTop > lastScrollTop) {
+                // Scrolling down
+                header.style.transform = 'translateY(-100%)';
+                header.style.transition = 'transform 0.3s ease-in-out';
+            } else {
+                // Scrolling up
+                header.style.transform = 'translateY(0)';
+                header.style.transition = 'transform 0.3s ease-in-out';
+            }
+            
+            lastScrollTop = scrollTop;
+        });
+    </script>
 </body>
 </html>
